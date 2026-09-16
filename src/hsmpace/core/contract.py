@@ -23,9 +23,12 @@ from .model import (
     Section,
     SimSettings,
     SpeedEvent,
+    UtilityRecipe,
+    WHEN_OCCUPY,
 )
 from .simulate import PieceResult
 from .studies import MonteCarloResult, PacingPoint
+from .utilities import analyse_utilities
 
 CONTRACT_VERSION = "1"
 
@@ -144,6 +147,15 @@ def case_to_dict(case: Case) -> dict:
             "max_time_s": case.settings.max_time,
             "time_axis_down": case.settings.time_axis_down,
         },
+        "utilities": [
+            {
+                "equipment_id": u.equipment_id,
+                "utility": u.utility,
+                "rate": u.rate,
+                "when": u.when,
+            }
+            for u in case.utilities
+        ],
     }
 
 
@@ -252,11 +264,22 @@ def case_from_dict(data: dict) -> Case:
         time_axis_down=bool(raw.get("time_axis_down", defaults.time_axis_down)),
     )
 
+    utilities = tuple(
+        UtilityRecipe(
+            equipment_id=str(u["equipment_id"]),
+            utility=str(u.get("utility", "")).lower(),
+            rate=float(u.get("rate", 0.0) or 0.0),
+            when=str(u.get("when") or WHEN_OCCUPY).lower(),
+        )
+        for u in data.get("utilities", [])
+    )
+
     return Case(
         line=Line(equipment, tuple(sections)),
         products=tuple(products),
         settings=settings,
         mill_type=str(data.get("mill_type") or data.get("info", {}).get("mill_type") or MILL_HSM),
+        utilities=utilities,
         info=dict(data.get("info", {})),
     )
 
@@ -371,5 +394,24 @@ def report_to_dict(
             "mean_min_gap_m": mc.mean,
             "p05_min_gap_m": mc.percentile(0.05),
             "errors": mc.errors,
+        }
+    usage = analyse_utilities(case, results)
+    if usage.draws:
+        report["utilities"] = {
+            "water_m3": usage.water_m3,
+            "power_kwh": usage.power_kwh,
+            "draws": [
+                {
+                    "piece_id": d.piece_id,
+                    "equipment_id": d.equipment_id,
+                    "utility": d.utility,
+                    "when": d.when,
+                    "t_in_s": d.t_in,
+                    "t_out_s": d.t_out,
+                    "rate": d.rate,
+                    "quantity": d.quantity,
+                }
+                for d in usage.draws
+            ],
         }
     return report

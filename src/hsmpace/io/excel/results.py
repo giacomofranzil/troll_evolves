@@ -17,6 +17,7 @@ from ...core.analysis import GapAnalysis, mass_balance
 from ...core.model import Case, MassFlowDeviation
 from ...core.simulate import PieceResult
 from ...core.studies import MonteCarloResult, PacingPoint
+from ...core.utilities import analyse_utilities
 
 _HEADER_FILL = PatternFill("solid", fgColor="1F3864")
 _HEADER_FONT = Font(color="FFFFFF", bold=True)
@@ -107,6 +108,42 @@ def write_results(
             for o in r.occupancy
         ],
     )
+
+    usage = analyse_utilities(case, results)
+    if usage.draws:
+        _table(
+            wb,
+            "Utilities",
+            [
+                "piece",
+                "equipment",
+                "utility",
+                "when",
+                "in [s]",
+                "out [s]",
+                "duration [s]",
+                "rate",
+                "quantity",
+            ],
+            [
+                [
+                    d.piece_id,
+                    d.equipment_id,
+                    d.utility,
+                    d.when,
+                    round(d.t_in, 2),
+                    round(d.t_out, 2),
+                    round(d.duration, 2),
+                    round(d.rate, 3),
+                    round(d.quantity, 4),
+                ]
+                for d in usage.draws
+            ]
+            + [
+                ["TOTAL", "", "water", "", "", "", "", "m3", round(usage.water_m3, 4)],
+                ["TOTAL", "", "power", "", "", "", "", "kWh", round(usage.power_kwh, 4)],
+            ],
+        )
 
     _table(
         wb,

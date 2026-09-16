@@ -26,12 +26,13 @@ def test_excel_round_trip_preserves_the_case(tmp_path):
     assert loaded.products == original.products
     assert loaded.settings == original.settings
     assert loaded.mill_type == original.mill_type == "hsm"
+    assert loaded.utilities == original.utilities
 
 
 def test_the_empty_template_has_the_sheets_and_headers(tmp_path):
     path = write_case(example_case(), tmp_path / "template.xlsx", include_data=False)
     wb = load_workbook(path)
-    assert {"Guide", "Info", "Layout", "Sections", "Products", "PassSchedule", "Simulation"} <= set(
+    assert {"Guide", "Info", "Layout", "Sections", "Products", "PassSchedule", "Simulation", "Utilities"} <= set(
         wb.sheetnames
     )
     assert wb["Layout"]["A1"].value == "equipment_id"
@@ -50,6 +51,10 @@ def test_the_empty_template_has_the_sheets_and_headers(tmp_path):
     assert "bypass" in guide
     assert "occupy" in guide
     assert "relative change" in guide
+    assert "Sheet Utilities" in guide
+    assert "L/s" in guide
+    assert wb["Utilities"]["A1"].value == "equipment_id"
+    assert wb["Utilities"].max_row == 1, "the empty template must contain no recipes"
 
 
 def test_json_round_trip_preserves_the_case():
@@ -63,6 +68,7 @@ def test_json_round_trip_preserves_the_case():
     assert loaded.mill_type == "hsm"
     assert payload["mill_type"] == "hsm"
     assert payload["contract_version"] == "1"
+    assert payload["utilities"][0]["equipment_id"] == "DS1"
 
 
 def test_parsing_errors_point_at_sheet_and_cell(tmp_path):
@@ -193,10 +199,17 @@ def test_writing_the_results(tmp_path):
 
     path = write_results(tmp_path / "out.xlsx", case, results, analyses, deviations, curve, best)
     wb = load_workbook(path)
-    assert {"Summary", "Events", "Occupancy", "Gap", "PacingCurve", "MassBalance"} <= set(
+    assert {"Summary", "Events", "Occupancy", "Utilities", "Gap", "PacingCurve", "MassBalance"} <= set(
         wb.sheetnames
     )
     assert wb["Events"].max_row > 10
+    totals = [
+        [c.value for c in row]
+        for row in wb["Utilities"].iter_rows(min_row=2)
+        if row[0].value == "TOTAL"
+    ]
+    assert any(r[2] == "water" and r[7] == "m3" and r[8] > 0 for r in totals)
+    assert any(r[2] == "power" and r[7] == "kWh" and r[8] > 0 for r in totals)
 
 
 def test_the_json_report_carries_segments_and_outcomes():
@@ -214,6 +227,8 @@ def test_the_json_report_carries_segments_and_outcomes():
         report["pieces"][0]["length_geometric_m"], rel=1e-6
     )
     assert report["gaps"][0]["ok"] is True
+    assert report["utilities"]["water_m3"] > 0.0
+    assert report["utilities"]["power_kwh"] > 0.0
 
 
 def test_an_older_workbook_without_occupy_columns_still_loads(tmp_path):
@@ -279,6 +294,23 @@ def test_tracking_without_the_tail_column():
 def test_tracking_with_missing_columns():
     with pytest.raises(ValueError, match="missing columns"):
         parse_tracking(["piece,time", "A1,0"])
+
+
+def test_an_older_workbook_without_the_utilities_sheet_still_loads(tmp_path):
+    path = write_case(example_case(), tmp_path / "no_utilities.xlsx")
+    wb = load_workbook(path)
+    del wb["Utilities"]
+    wb.save(path)
+
+    loaded = read_case(path)
+    assert loaded.utilities == ()
+
+
+def test_json_without_utilities_defaults_to_empty():
+    payload = case_to_dict(example_case())
+    del payload["utilities"]
+    loaded = case_from_dict(payload)
+    assert loaded.utilities == ()
 
 
 def test_json_without_mill_type_defaults_to_hsm():

@@ -19,6 +19,9 @@ from .core.model import (
     Section,
     SimSettings,
     SpeedEvent,
+    UtilityRecipe,
+    WHEN_OCCUPY,
+    WHEN_ROLLING,
 )
 
 _EQUIPMENT = [
@@ -42,6 +45,20 @@ _EQUIPMENT = [
     Equipment("DC1", "coiler", 418.0, accel=0.5, label="DC1"),
     Equipment("DC2", "coiler", 427.0, accel=0.5, label="DC2"),
     Equipment("DC3", "coiler", 436.0, accel=0.5, label="DC3"),
+]
+
+_UTILITIES = [
+    UtilityRecipe("DS1", "water", 120.0, WHEN_OCCUPY),
+    UtilityRecipe("DS2", "water", 80.0, WHEN_OCCUPY),
+    UtilityRecipe("R1", "power", 8000.0, WHEN_ROLLING),
+    UtilityRecipe("R2", "power", 9000.0, WHEN_ROLLING),
+    UtilityRecipe("F1", "power", 6000.0, WHEN_ROLLING),
+    UtilityRecipe("F2", "power", 5500.0, WHEN_ROLLING),
+    UtilityRecipe("F3", "power", 5000.0, WHEN_ROLLING),
+    UtilityRecipe("F4", "power", 4500.0, WHEN_ROLLING),
+    UtilityRecipe("F5", "power", 4000.0, WHEN_ROLLING),
+    UtilityRecipe("F6", "power", 3500.0, WHEN_ROLLING),
+    UtilityRecipe("F7", "power", 3000.0, WHEN_ROLLING),
 ]
 
 _SECTIONS = [
@@ -184,6 +201,7 @@ def example_case() -> Case:
         line=Line(tuple(_EQUIPMENT), tuple(_SECTIONS)),
         products=products,
         settings=settings,
+        utilities=tuple(_UTILITIES),
         info={
             "schema_version": "1",
             "mill_type": "hsm",

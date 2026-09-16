@@ -15,6 +15,7 @@ SHEET_SECTIONS = "Sections"
 SHEET_PRODUCTS = "Products"
 SHEET_PASSES = "PassSchedule"
 SHEET_SIM = "Simulation"
+SHEET_UTILITIES = "Utilities"
 SHEET_GUIDE = "Guide"
 
 MAX_EVENTS_PER_SECTION = 7
@@ -155,6 +156,25 @@ OPTIONAL_COLUMNS = {
     "coilbox",
 }
 
+UTILITY_COLUMNS = [
+    ("equipment_id", "Layout identifier this recipe applies to (DS1, R2, F1, …)"),
+    (
+        "utility",
+        "water | power. water rate is L/s, power rate is kW. Totals: m3 and kWh",
+    ),
+    (
+        "rate",
+        "Instantaneous consumption while the condition below holds. "
+        "water: litres per second. power: kW",
+    ),
+    (
+        "when",
+        "occupy (default) = occupancy footprint of the device. rolling = stand "
+        "occupancy only (bite to tail-out, or the stand footprint if "
+        "occupy_before_m / occupy_after_m are set). rolling is valid on stands only",
+    ),
+]
+
 SIM_KEYS = [
     ("pacing_s", 170.0, "Nominal cadence between one piece and the next, s"),
     ("n_pieces", 3, "Number of simulated pieces"),
@@ -194,6 +214,7 @@ GUIDE_TEXT = [
     ("Units are fixed in the file, there is no unit column to fill in:", True),
     ("    positions and lengths in m, thicknesses and widths in mm,", False),
     ("    speeds in m/s, times in s, accelerations in m/s2.", False),
+    ("    utilities: water in L/s (totals in m3), electrical power in kW (totals in kWh).", False),
     ("", False),
     ("Sheet Layout: the kind column", True),
     (
@@ -417,6 +438,22 @@ GUIDE_TEXT = [
         "remove the unused rows from the Layout rather than leaving them idle. A piece "
         "assigned to a downstream coiler does not stop at the one upstream: the head "
         "passes it, which is the in-line layout.",
+        False,
+    ),
+    ("", False),
+    ("Sheet Utilities", True),
+    (
+        "Optional. Instantaneous water and electrical power while a device is busy, "
+        "applied after the run onto occupancy intervals: they do not enter the event "
+        "loop. Overlapping pieces add. water rate is L/s, power rate is kW. "
+        "Integrated totals are m3 of water and kWh. when=occupy uses the occupancy "
+        "footprint (descalers, coilers, coilbox, stands). when=rolling is stands only.",
+        False,
+    ),
+    (
+        "Leave the sheet empty, or omit it from an older workbook, to skip the "
+        "calculation. A recipe on a device with occupy off is reported and consumes "
+        "nothing.",
         False,
     ),
     ("", False),

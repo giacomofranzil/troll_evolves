@@ -44,6 +44,13 @@ EQUIPMENT_KINDS = tuple(KIND_SPECS)
 
 MAX_COILERS = 3
 
+UTILITY_WATER = "water"
+UTILITY_POWER = "power"
+UTILITY_KINDS = (UTILITY_WATER, UTILITY_POWER)
+WHEN_OCCUPY = "occupy"
+WHEN_ROLLING = "rolling"
+UTILITY_WHENS = (WHEN_OCCUPY, WHEN_ROLLING)
+
 
 def kind_reads_layout_accel(kind: str) -> bool:
     spec = KIND_SPECS.get(kind)
@@ -299,6 +306,20 @@ class Line:
 
 
 @dataclass(frozen=True)
+class UtilityRecipe:
+    """Instantaneous consumption while a device is busy.
+
+    ``rate`` is L/s for water and kW for power. ``when`` is ``occupy`` (the
+    occupancy footprint) or ``rolling`` (stand occupancy only).
+    """
+
+    equipment_id: str
+    utility: str
+    rate: float
+    when: str = WHEN_OCCUPY
+
+
+@dataclass(frozen=True)
 class Case:
     """Complete case: line, products and simulation settings."""
 
@@ -306,6 +327,7 @@ class Case:
     products: tuple[Product, ...]
     settings: SimSettings = field(default_factory=SimSettings)
     mill_type: str = MILL_HSM
+    utilities: tuple[UtilityRecipe, ...] = ()
     info: dict[str, str] = field(default_factory=dict)
     warnings: tuple[str, ...] = ()
     """Non blocking remarks collected while reading the input."""
@@ -566,6 +588,38 @@ def validate_case(case: Case) -> list[Problem]:
         add("setting:table_accel_mps2", "the roller table acceleration must be positive")
     if case.settings.coiler_v_final < 0:
         add("setting:coiler_v_final_mps", "the final speed at the coiler cannot be negative")
+
+    for i, recipe in enumerate(case.utilities):
+        tag = f"utility:{i}"
+        if recipe.utility not in UTILITY_KINDS:
+            add(
+                tag,
+                f"utility {recipe.utility!r} is not valid: use {' | '.join(UTILITY_KINDS)}",
+            )
+        if recipe.when not in UTILITY_WHENS:
+            add(
+                tag,
+                f"when {recipe.when!r} is not valid: use {' | '.join(UTILITY_WHENS)}",
+            )
+        if recipe.rate < 0.0:
+            add(tag, f"utility rate cannot be negative ({recipe.rate:g})")
+        try:
+            eq = line.get(recipe.equipment_id)
+        except ModelError:
+            add(tag, f"unknown equipment {recipe.equipment_id!r}")
+            continue
+        if recipe.when == WHEN_ROLLING and eq.kind != KIND_STAND:
+            add(
+                tag,
+                f"{recipe.equipment_id}: when=rolling applies only to stands, "
+                f"not {eq.kind}",
+            )
+        elif not eq.occupies:
+            warn(
+                tag,
+                f"{recipe.equipment_id}: occupy is off, so this utility recipe "
+                "never consumes anything",
+            )
 
     from ..plants import validate_plant
 

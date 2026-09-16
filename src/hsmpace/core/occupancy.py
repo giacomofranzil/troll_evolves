@@ -2,7 +2,7 @@
 
 A device is busy when ``[tail, head]`` overlaps ``[x - occupy_before, x + occupy_after]``.
 This module is post-process on the trajectories: it does not run inside the event loop.
-Utility consumption (water, power) will attach to these intervals later.
+Utility consumption (water, power) attaches to these intervals in ``utilities.py``.
 """
 
 from __future__ import annotations

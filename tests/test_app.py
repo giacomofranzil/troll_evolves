@@ -37,12 +37,14 @@ def test_the_summary_metrics_are_present(app: AppTest):
         "Outcome",
         "Minimum feasible pacing",
         "Margin on the pacing",
+        "Water over the sequence",
+        "Electrical energy over the sequence",
     } <= labels
 
 
 def test_the_main_charts_are_drawn(app: AppTest):
-    # space-time diagram, gap, pacing curve and Gantt
-    assert len(app.get("plotly_chart")) >= 4
+    # space-time, gap, pacing, Gantt, water rate, power rate
+    assert len(app.get("plotly_chart")) >= 6
 
 
 def test_a_tight_pacing_produces_a_violation():

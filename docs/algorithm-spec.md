@@ -316,6 +316,10 @@ acceleration of its stand.
   `[x - occupy_before, x + occupy_after]`. Default occupy is yes for stand, coiler and coilbox, no
   for marker and start. Empty footprints on a stand reduce to bite → tail-out. A reversing bar can
   occupy the same device twice.
+* **utilities**: after occupancy, each recipe (`equipment_id`, `water` or `power`, rate, `occupy` or
+  `rolling`) is applied to matching busy spans. Instantaneous rate is piecewise constant; overlapping
+  pieces add. Water rate is L/s (integral in m3); power rate is kW (integral in kWh). `rolling` is
+  valid on stands only. This is not part of the event loop.
 * **intermediate material points**: not part of the event loop. After the run, `n` traces
   (`n ∈ {2, 3, 5, …, 21}`, default 2) are reconstructed as geometric fractions of the current
   length between tail and head.

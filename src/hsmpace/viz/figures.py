@@ -12,10 +12,11 @@ import plotly.graph_objects as go
 
 from ..core.analysis import GapAnalysis
 from ..core.kinematics import interpolated_polyline
-from ..core.model import KIND_COILER, KIND_COILBOX, KIND_STAND, Case
+from ..core.model import KIND_COILER, KIND_COILBOX, KIND_STAND, UTILITY_WATER, Case
 from ..core.simulate import PieceResult
 from ..core.studies import MonteCarloResult, PacingPoint
 from ..core.tracking import TrackingSeries
+from ..core.utilities import UtilityReport
 
 PALETTE = [
     "#1f77b4",
@@ -422,4 +423,40 @@ def monte_carlo_figure(mc: MonteCarloResult, gap_min: float) -> go.Figure:
     )
     fig.update_xaxes(title="Minimum gap of the sequence [m]")
     fig.update_yaxes(title="Number of runs")
+    return fig
+
+
+def utility_rate_figure(report: UtilityReport, utility: str) -> go.Figure:
+    """Piecewise-constant instantaneous rate of one utility over the sequence."""
+    series = report.water_series if utility == UTILITY_WATER else report.power_series
+    ylabel = "Water [L/s]" if utility == UTILITY_WATER else "Power [kW]"
+    title = (
+        "Instantaneous water"
+        if utility == UTILITY_WATER
+        else "Instantaneous electrical power"
+    )
+    fig = go.Figure()
+    if not series:
+        fig.add_annotation(
+            text="No consumption of this utility in the sequence.",
+            showarrow=False,
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
+        return _layout(fig, title, height=320)
+    fig.add_trace(
+        go.Scatter(
+            x=[p.t for p in series],
+            y=[p.rate for p in series],
+            mode="lines",
+            line=dict(shape="hv", width=2, color="#1f77b4"),
+            name=ylabel,
+            hovertemplate="t %{x:.1f} s<br>%{y:.1f}<extra></extra>",
+        )
+    )
+    _layout(fig, title, height=320)
+    fig.update_xaxes(title="Time [s]")
+    fig.update_yaxes(title=ylabel)
     return fig

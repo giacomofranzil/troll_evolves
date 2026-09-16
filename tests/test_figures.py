@@ -6,7 +6,14 @@ from hsmpace.core.analysis import analyse_sequence
 from hsmpace.core.model import harmonise_tandem_speeds
 from hsmpace.core.studies import base_results, sequence
 from hsmpace.example import example_case
-from hsmpace.viz.figures import TRACE_POINT_CHOICES, gantt_figure, gap_figure, space_time_figure
+from hsmpace.core.utilities import UtilityReport, analyse_utilities
+from hsmpace.viz.figures import (
+    TRACE_POINT_CHOICES,
+    gantt_figure,
+    gap_figure,
+    space_time_figure,
+    utility_rate_figure,
+)
 
 
 def test_the_gap_chart_y_axis_follows_the_data_not_a_million_metres():
@@ -46,3 +53,22 @@ def test_extra_material_points_add_traces():
     assert TRACE_POINT_CHOICES[0] == 2
     assert 21 in TRACE_POINT_CHOICES
     assert len(fig5.data) > len(fig2.data)
+
+
+def test_utility_rate_figure_plots_the_step_series():
+    case, _ = harmonise_tandem_speeds(example_case())
+    results = sequence(case, base_results(case), case.settings.pacing)
+    usage = analyse_utilities(case, results)
+    assert not usage.empty
+
+    water = utility_rate_figure(usage, "water")
+    power = utility_rate_figure(usage, "power")
+    assert water.data
+    assert power.data
+    assert water.layout.yaxis.title.text == "Water [L/s]"
+    assert power.layout.yaxis.title.text == "Power [kW]"
+    assert water.data[0].line.shape == "hv"
+
+    empty = utility_rate_figure(UtilityReport((), (), (), 0.0, 0.0), "water")
+    assert empty.layout.annotations
+    assert "No consumption" in empty.layout.annotations[0].text

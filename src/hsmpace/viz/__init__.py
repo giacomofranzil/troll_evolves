@@ -7,6 +7,7 @@ from .figures import (
     monte_carlo_figure,
     pacing_curve_figure,
     space_time_figure,
+    utility_rate_figure,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "monte_carlo_figure",
     "pacing_curve_figure",
     "space_time_figure",
+    "utility_rate_figure",
 ]

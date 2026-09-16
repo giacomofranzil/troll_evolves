@@ -24,6 +24,7 @@ from hsmpace.core.studies import (
     sequence,
 )
 from hsmpace.core.tracking import parse_tracking
+from hsmpace.core.utilities import analyse_utilities
 from hsmpace.example import example_case
 from hsmpace.io.excel import ValidationError, read_case, write_case, write_results
 from hsmpace.viz import (
@@ -33,6 +34,7 @@ from hsmpace.viz import (
     monte_carlo_figure,
     pacing_curve_figure,
     space_time_figure,
+    utility_rate_figure,
 )
 
 PLOT_CONFIG = {
@@ -198,6 +200,7 @@ def main() -> None:
 
     results = sequence(case, base, pacing)
     analyses = analyse_sequence(results, gap_min, case.line)
+    usage = analyse_utilities(case, results)
     worst = min(analyses, key=lambda a: a.min_gap) if analyses else None
 
     with st.spinner("Scanning the pacing..."):
@@ -324,6 +327,43 @@ def main() -> None:
             "the coilbox, and markers such as descalers. A reversing bar can occupy "
             "the same device twice."
         )
+        if usage.empty:
+            st.info(
+                "No Utilities sheet (or it is empty): occupancy is shown, consumption "
+                "is not calculated. Add water / power recipes on the Utilities sheet."
+            )
+        else:
+            cols_u = st.columns(2)
+            cols_u[0].metric("Water over the sequence", f"{usage.water_m3:.2f} m³")
+            cols_u[1].metric("Electrical energy over the sequence", f"{usage.power_kwh:.1f} kWh")
+            st.plotly_chart(
+                utility_rate_figure(usage, "water"), width="stretch", config=PLOT_CONFIG
+            )
+            st.plotly_chart(
+                utility_rate_figure(usage, "power"), width="stretch", config=PLOT_CONFIG
+            )
+            st.caption(
+                "Rates are piecewise constant on occupancy: water in L/s, power in kW. "
+                "Overlapping pieces add. Totals are the integral over the simulated "
+                "sequence, not a plant shift. rolling recipes apply only to stands."
+            )
+            st.dataframe(
+                [
+                    {
+                        "piece": d.piece_id,
+                        "equipment": d.equipment_id,
+                        "utility": d.utility,
+                        "when": d.when,
+                        "from [s]": round(d.t_in, 1),
+                        "to [s]": round(d.t_out, 1),
+                        "rate": round(d.rate, 1),
+                        "quantity": round(d.quantity, 2),
+                    }
+                    for d in usage.draws
+                ],
+                width="stretch",
+                hide_index=True,
+            )
 
     with tabs[4]:
         piece_ids = [r.piece_id for r in results]

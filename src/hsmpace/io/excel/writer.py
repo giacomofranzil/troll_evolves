@@ -213,6 +213,16 @@ def write_case(case: Case, path: str | Path, include_data: bool = True) -> Path:
         cell = ws.cell(row=row, column=3, value=note)
         cell.alignment = Alignment(wrap_text=True)
 
+    ws = wb.create_sheet(S.SHEET_UTILITIES)
+    _write_header(ws, S.UTILITY_COLUMNS)
+    if include_data:
+        for row, recipe in enumerate(case.utilities, start=2):
+            for col, value in enumerate(
+                [recipe.equipment_id, recipe.utility, recipe.rate, recipe.when],
+                start=1,
+            ):
+                ws.cell(row=row, column=col, value=value)
+
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path

@@ -26,6 +26,8 @@ from ...core.model import (
     Section,
     SimSettings,
     SpeedEvent,
+    UtilityRecipe,
+    WHEN_OCCUPY,
     validate_case,
 )
 from . import schema as S
@@ -222,6 +224,10 @@ def read_case(path: str | Path) -> Case:
         settings = _read_settings(wb[S.SHEET_SIM], issues, locations)
     else:
         settings = SimSettings()
+    if S.SHEET_UTILITIES in wb.sheetnames:
+        utilities = _read_utilities(wb[S.SHEET_UTILITIES], issues, locations)
+    else:
+        utilities = []
     issues.raise_if_any()
 
     case = Case(
@@ -229,6 +235,7 @@ def read_case(path: str | Path) -> Case:
         products=tuple(products),
         settings=settings,
         mill_type=mill_type,
+        utilities=tuple(utilities),
         info=info,
     )
 
@@ -565,3 +572,22 @@ def _read_settings(
         table_accel=num("table_accel_mps2", defaults.table_accel),
         coiler_v_final=num("coiler_v_final_mps", defaults.coiler_v_final),
     )
+
+
+def _read_utilities(
+    ws: Any, issues: _Collector, locations: dict[str, tuple[str, str]]
+) -> list[UtilityRecipe]:
+    table = _Table(ws, [c[0] for c in S.UTILITY_COLUMNS], issues)
+    out: list[UtilityRecipe] = []
+    for i, row in enumerate(table.rows()):
+        locations[f"utility:{i}"] = (table.name, table.ref(row, "equipment_id"))
+        when_raw = table.text(row, "when", required=False, default="").lower()
+        out.append(
+            UtilityRecipe(
+                equipment_id=table.text(row, "equipment_id"),
+                utility=table.text(row, "utility").lower(),
+                rate=table.number(row, "rate", minimum=0.0) or 0.0,
+                when=when_raw or WHEN_OCCUPY,
+            )
+        )
+    return out
