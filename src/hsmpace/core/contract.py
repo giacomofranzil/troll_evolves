@@ -320,6 +320,7 @@ def result_to_dict(result: PieceResult) -> dict:
                 "t_in_s": o.t_in,
                 "t_out_s": o.t_out,
                 "piece_id": o.piece_id,
+                "working": o.working,
             }
             for o in result.occupancy
         ],

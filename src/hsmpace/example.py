@@ -48,8 +48,9 @@ _EQUIPMENT = [
 ]
 
 _UTILITIES = [
-    UtilityRecipe("DS1", "water", 120.0, WHEN_OCCUPY),
-    UtilityRecipe("DS2", "water", 80.0, WHEN_OCCUPY),
+    # 120 L/s and 80 L/s expressed as m³/h: 120 * 3.6 = 432, 80 * 3.6 = 288
+    UtilityRecipe("DS1", "water", 432.0, WHEN_OCCUPY),
+    UtilityRecipe("DS2", "water", 288.0, WHEN_OCCUPY),
     UtilityRecipe("R1", "power", 8000.0, WHEN_ROLLING),
     UtilityRecipe("R2", "power", 9000.0, WHEN_ROLLING),
     UtilityRecipe("F1", "power", 6000.0, WHEN_ROLLING),

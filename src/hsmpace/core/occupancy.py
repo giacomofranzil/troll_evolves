@@ -7,10 +7,10 @@ Utility consumption (water, power) attaches to these intervals in ``utilities.py
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .kinematics import overlap_intervals
-from .model import KIND_STAND, Line
+from .model import KIND_COILER, KIND_STAND, Line
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,9 @@ class Occupancy:
     t_in: float
     t_out: float
     piece_id: str = ""
+    working: bool = True
+    """True when the device is working on this piece. Coilers covered by the
+    strip but not assigned to it stay occupied (pacing) with working=False."""
 
     @property
     def duration(self) -> float:
@@ -28,9 +31,28 @@ class Occupancy:
 
 def stamp_piece(occupancy: tuple[Occupancy, ...], piece_id: str) -> tuple[Occupancy, ...]:
     """Attach the piece identifier after the geometric spans are known."""
-    return tuple(
-        Occupancy(o.equipment_id, o.pass_no, o.t_in, o.t_out, piece_id) for o in occupancy
-    )
+    return tuple(replace(o, piece_id=piece_id) for o in occupancy)
+
+
+def classify_working(
+    occupancy: tuple[Occupancy, ...],
+    line: Line,
+    coiler_id: str,
+) -> tuple[Occupancy, ...]:
+    """Tag coiler spans that are passage, not coiling.
+
+    Default is working. A coiler whose id is not the piece's assigned
+    ``coiler_id`` stays geometrically busy (the strip is there) but does not
+    work on that piece.
+    """
+    kinds = {e.id: e.kind for e in line.equipment}
+    out: list[Occupancy] = []
+    for o in occupancy:
+        if kinds.get(o.equipment_id) == KIND_COILER and o.equipment_id != coiler_id:
+            out.append(replace(o, working=False))
+        else:
+            out.append(replace(o, working=True))
+    return tuple(out)
 
 
 def finalise_occupancy(

@@ -358,10 +358,29 @@ def gantt_figure(case: Case, results: list[PieceResult]) -> go.Figure:
         if e.id in occupied
     ]
     labels = {e.id: e.display for e in case.line.equipment}
+    kinds = {e.id: e.kind for e in case.line.equipment}
 
-    for i, res in enumerate(results):
-        color = PALETTE[i % len(PALETTE)]
-        occ = [o for o in res.occupancy if o.equipment_id in occupied]
+    def _role(occ) -> str:
+        if kinds.get(occ.equipment_id) != KIND_COILER:
+            return ""
+        if occ.working:
+            return "avvolgimento"
+        return "passaggio (mandrino non assegnato)"
+
+    def _add_bars(res, occ, color, name, showlegend: bool) -> None:
+        if not occ:
+            return
+        hovertext = []
+        for o in occ:
+            label = labels.get(o.equipment_id, o.equipment_id)
+            text = (
+                f"pass {o.pass_no}<br>{label}"
+                f"<br>from {o.t_in:.1f} s to {o.t_out:.1f} s"
+            )
+            role = _role(o)
+            if role:
+                text += f"<br>{role}"
+            hovertext.append(text)
         fig.add_trace(
             go.Bar(
                 x=[o.duration for o in occ],
@@ -369,14 +388,21 @@ def gantt_figure(case: Case, results: list[PieceResult]) -> go.Figure:
                 base=[o.t_in for o in occ],
                 orientation="h",
                 marker=dict(color=color, line=dict(width=0)),
-                name=res.piece_id,
-                customdata=[[o.pass_no, o.t_in, o.t_out] for o in occ],
-                hovertemplate="pass %{customdata[0]}<br>%{y}"
-                "<br>from %{customdata[1]:.1f} s to %{customdata[2]:.1f} s<extra>"
-                + res.piece_id
-                + "</extra>",
+                name=name,
+                legendgroup=res.piece_id,
+                showlegend=showlegend,
+                hovertext=hovertext,
+                hovertemplate="%{hovertext}<extra>" + res.piece_id + "</extra>",
             )
         )
+
+    for i, res in enumerate(results):
+        color = PALETTE[i % len(PALETTE)]
+        occ = [o for o in res.occupancy if o.equipment_id in occupied]
+        working = [o for o in occ if o.working]
+        blocked = [o for o in occ if not o.working]
+        _add_bars(res, working, color, res.piece_id, True)
+        _add_bars(res, blocked, _rgba(color, 0.4), res.piece_id, False)
 
     _layout(fig, "Occupancy", height=max(420, 28 * max(len(order), 1) + 160))
     fig.update_layout(barmode="overlay", bargap=0.35)
@@ -429,7 +455,7 @@ def monte_carlo_figure(mc: MonteCarloResult, gap_min: float) -> go.Figure:
 def utility_rate_figure(report: UtilityReport, utility: str) -> go.Figure:
     """Piecewise-constant instantaneous rate of one utility over the sequence."""
     series = report.water_series if utility == UTILITY_WATER else report.power_series
-    ylabel = "Water [L/s]" if utility == UTILITY_WATER else "Power [kW]"
+    ylabel = "Water [m³/h]" if utility == UTILITY_WATER else "Power [kW]"
     title = (
         "Instantaneous water"
         if utility == UTILITY_WATER

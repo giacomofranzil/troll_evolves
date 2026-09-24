@@ -38,8 +38,9 @@ def _dummy_result(piece_id: str, occupancy: list[Occupancy]) -> PieceResult:
     )
 
 
-def test_quantity_of_water_is_rate_times_seconds():
-    assert quantity_of(UTILITY_WATER, 120.0, 10.0) == pytest.approx(1200.0)
+def test_quantity_of_water_is_rate_times_hours():
+    # 432 m³/h for 10 s = 432 * 10 / 3600 = 1.2 m³ (same as 120 L/s for 10 s)
+    assert quantity_of(UTILITY_WATER, 432.0, 10.0) == pytest.approx(1.2)
 
 
 def test_quantity_of_power_converts_kw_seconds_to_kwh():
@@ -66,7 +67,7 @@ def test_ds1_water_follows_occupancy_duration():
     case, _ = harmonise_tandem_speeds(
         replace(
             example_case(),
-            utilities=(UtilityRecipe("DS1", UTILITY_WATER, 120.0, WHEN_OCCUPY),),
+            utilities=(UtilityRecipe("DS1", UTILITY_WATER, 432.0, WHEN_OCCUPY),),
         )
     )
     from hsmpace.core.simulate import simulate_piece
@@ -75,8 +76,8 @@ def test_ds1_water_follows_occupancy_duration():
     ds1 = [o for o in res.occupancy if o.equipment_id == "DS1"]
     assert ds1
     usage = analyse_utilities(case, [res])
-    litres = sum(120.0 * o.duration for o in ds1)
-    assert usage.water_m3 == pytest.approx(litres / 1000.0)
+    water_m3 = sum(432.0 * o.duration / 3600.0 for o in ds1)
+    assert usage.water_m3 == pytest.approx(water_m3)
     assert usage.power_kwh == 0.0
     assert all(d.equipment_id == "DS1" and d.utility == UTILITY_WATER for d in usage.draws)
 
@@ -84,7 +85,7 @@ def test_ds1_water_follows_occupancy_duration():
 def test_overlapping_pieces_add_instantaneous_rates():
     case = replace(
         example_case(),
-        utilities=(UtilityRecipe("DS1", UTILITY_WATER, 120.0, WHEN_OCCUPY),),
+        utilities=(UtilityRecipe("DS1", UTILITY_WATER, 432.0, WHEN_OCCUPY),),
     )
     first = _dummy_result(
         "#1", [Occupancy("DS1", 1, t_in=0.0, t_out=10.0, piece_id="#1")]
@@ -96,9 +97,9 @@ def test_overlapping_pieces_add_instantaneous_rates():
 
     assert usage.water_m3 == pytest.approx(2.4)
     by_t = {p.t: p.rate for p in usage.water_series}
-    assert by_t[0.0] == pytest.approx(120.0)
-    assert by_t[5.0] == pytest.approx(240.0)
-    assert by_t[10.0] == pytest.approx(120.0)
+    assert by_t[0.0] == pytest.approx(432.0)
+    assert by_t[5.0] == pytest.approx(864.0)
+    assert by_t[10.0] == pytest.approx(432.0)
     assert by_t[15.0] == pytest.approx(0.0)
 
 
@@ -198,5 +199,43 @@ def test_analyse_utilities_does_not_need_the_simulator():
         "A", [Occupancy("DS1", 1, t_in=2.0, t_out=4.0, piece_id="A")]
     )
     usage = analyse_utilities(case, [piece])
-    assert usage.draws[0].quantity == pytest.approx(100.0)
-    assert usage.water_m3 == pytest.approx(0.1)
+    assert usage.draws[0].quantity == pytest.approx(50.0 * 2.0 / 3600.0)
+    assert usage.water_m3 == pytest.approx(50.0 * 2.0 / 3600.0)
+
+
+def test_blocked_coiler_does_not_consume_water_or_power():
+    """Passage on an unassigned mandrel stays busy but is skipped by utilities."""
+    case = replace(
+        example_case(),
+        utilities=(
+            UtilityRecipe("DC1", UTILITY_WATER, 432.0, WHEN_OCCUPY),
+            UtilityRecipe("DC2", UTILITY_WATER, 432.0, WHEN_OCCUPY),
+            UtilityRecipe("DC1", UTILITY_POWER, 1000.0, WHEN_OCCUPY),
+            UtilityRecipe("DC2", UTILITY_POWER, 1000.0, WHEN_OCCUPY),
+        ),
+    )
+    from hsmpace.core.simulate import simulate_piece
+
+    res = simulate_piece(case, case.products[0], coiler=case.line.get("DC2"))
+    assert any(o.equipment_id == "DC1" and not o.working for o in res.occupancy)
+    assert any(o.equipment_id == "DC2" and o.working for o in res.occupancy)
+    usage = analyse_utilities(case, [res])
+    assert usage.draws
+    assert all(d.equipment_id != "DC1" for d in usage.draws)
+    assert any(d.equipment_id == "DC2" and d.utility == UTILITY_WATER for d in usage.draws)
+    assert any(d.equipment_id == "DC2" and d.utility == UTILITY_POWER for d in usage.draws)
+
+
+def test_working_false_span_is_ignored_even_without_the_simulator():
+    case = replace(
+        example_case(),
+        utilities=(UtilityRecipe("DC1", UTILITY_WATER, 432.0, WHEN_OCCUPY),),
+    )
+    piece = _dummy_result(
+        "#1",
+        [Occupancy("DC1", 1, t_in=0.0, t_out=10.0, piece_id="#1", working=False)],
+    )
+    usage = analyse_utilities(case, [piece])
+    assert usage.empty
+    assert usage.water_m3 == 0.0
+    assert usage.power_kwh == 0.0

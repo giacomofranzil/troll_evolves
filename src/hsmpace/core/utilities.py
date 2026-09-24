@@ -33,7 +33,7 @@ class UtilityDraw:
     t_out: float
     rate: float
     quantity: float
-    """Litres for water, kWh for power."""
+    """Cubic metres for water, kWh for power."""
 
     @property
     def duration(self) -> float:
@@ -60,17 +60,21 @@ class UtilityReport:
 
 
 def quantity_of(utility: str, rate: float, duration: float) -> float:
-    """Integrated consumption: litres (water) or kWh (power)."""
+    """Integrated consumption: m³ (water) or kWh (power).
+
+    Water rate is m³/h, so quantity is ``rate * duration / 3600``.
+    Power rate is kW, so quantity is ``rate * duration / 3600``.
+    """
     if duration <= 0.0 or rate == 0.0:
         return 0.0
-    if utility == UTILITY_WATER:
-        return rate * duration
-    if utility == UTILITY_POWER:
+    if utility in (UTILITY_WATER, UTILITY_POWER):
         return rate * duration / 3600.0
     return 0.0
 
 
 def _matches(recipe: UtilityRecipe, occ: Occupancy, kind: str) -> bool:
+    if not occ.working:
+        return False
     if occ.equipment_id != recipe.equipment_id:
         return False
     if occ.duration <= 1e-9:
@@ -120,12 +124,12 @@ def analyse_utilities(case: Case, results: list[PieceResult]) -> UtilityReport:
                 )
 
     ordered = tuple(sorted(draws, key=lambda d: (d.t_in, d.equipment_id, d.piece_id)))
-    water_l = sum(d.quantity for d in ordered if d.utility == UTILITY_WATER)
+    water_m3 = sum(d.quantity for d in ordered if d.utility == UTILITY_WATER)
     power_kwh = sum(d.quantity for d in ordered if d.utility == UTILITY_POWER)
     return UtilityReport(
         draws=ordered,
         water_series=_step_series(ordered, UTILITY_WATER),
         power_series=_step_series(ordered, UTILITY_POWER),
-        water_m3=water_l / 1000.0,
+        water_m3=water_m3,
         power_kwh=power_kwh,
     )

@@ -325,7 +325,10 @@ def main() -> None:
             "Busy time of every device with occupy enabled: stands (bite to tail-out, "
             "or the footprint when occupy_before_m / occupy_after_m are set), coilers, "
             "the coilbox, and markers such as descalers. A reversing bar can occupy "
-            "the same device twice."
+            "the same device twice. A full bar is the machine working on that piece. "
+            "Slight transparency means the strip occupies the space (for example DC1 "
+            "while coiling on DC2): you cannot book that mandrel, but it does not "
+            "consume as if it were coiling."
         )
         if usage.empty:
             st.info(
@@ -343,9 +346,10 @@ def main() -> None:
                 utility_rate_figure(usage, "power"), width="stretch", config=PLOT_CONFIG
             )
             st.caption(
-                "Rates are piecewise constant on occupancy: water in L/s, power in kW. "
+                "Rates are piecewise constant on occupancy: water in m³/h, power in kW. "
                 "Overlapping pieces add. Totals are the integral over the simulated "
-                "sequence, not a plant shift. rolling recipes apply only to stands."
+                "sequence (m³ and kWh), not a plant shift. rolling recipes apply only "
+                "to stands. A coiler occupied only as passage does not consume."
             )
             st.dataframe(
                 [

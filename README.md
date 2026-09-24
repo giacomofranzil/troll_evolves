@@ -27,8 +27,11 @@ the minimum cadence at which pieces can enter the process.
 * **Monte Carlo robustness**: probability of a violation once pass speeds, dead times and release
   instants have the dispersion they have in the plant.
 * **Occupancy** as a Gantt chart of every device marked busy (stands, coilers, coilbox, descalers)
-  and a full event log. Optional **utilities**: instantaneous water (L/s) and electrical power (kW)
-  on those busy intervals, with totals in m³ and kWh over the simulated sequence.
+  and a full event log. Optional **utilities**: instantaneous water (m³/h) and electrical power (kW)
+  on those busy intervals, with totals in m³ and kWh over the simulated sequence. On the Occupancy
+  Gantt a full bar is the machine working on that piece; slight transparency is the strip occupying
+  the space (for example DC1 while coiling on DC2), so that mandrel cannot be booked but it does not
+  consume as if coiling.
 * **Coilbox**, one per line, used or bypassed per product: when used, the piece shrinks to the axis,
   the original tail leaves first toward the finishing mill, and the gap while the box is busy is
   taken to the axis (or to the tail still on the roller tables, if that is closer).
@@ -139,7 +142,7 @@ Other conventions worth knowing:
 
 An `.xlsx` without macros, read only: results always go to a separate file. Units are fixed in the
 template and there is no unit column to fill in: **positions and lengths in m, thicknesses and widths
-in mm, speeds in m/s, times in s, accelerations in m/s2, water in L/s, electrical power in kW**.
+in mm, speeds in m/s, times in s, accelerations in m/s2, water in m³/h, electrical power in kW**.
 
 | Sheet | Content |
 |---|---|
@@ -149,7 +152,7 @@ in mm, speeds in m/s, times in s, accelerations in m/s2, water in L/s, electrica
 | `Products` | slab dimensions, and coilbox use (`YES` / `NO` / empty) plus threading, coiling, uncoiling speeds, `coilbox_thread_length_m` and `coilbox_delay_s` |
 | `PassSchedule` | per pass: stand, direction, reduction, widths, speed, reversing delay and clearance, tandem master, zoom |
 | `Simulation` | pacing, number of pieces, product sequence, coiler cycle, minimum gap, roller table acceleration, final speed at the coiler, scan and Monte Carlo parameters |
-| `Utilities` | optional recipes: `equipment_id`, `utility` (`water` \| `power`), `rate` (L/s or kW), `when` (`occupy` \| `rolling`). Older workbooks without the sheet still load |
+| `Utilities` | optional recipes: `equipment_id`, `utility` (`water` \| `power`), `rate` (m³/h or kW), `when` (`occupy` \| `rolling`). Older workbooks without the sheet still load |
 
 The `kind` column decides what the model does with a row, and `group` is functional rather than
 informative: stands sharing a group label form a tandem, and inside it the pass flagged as `master`

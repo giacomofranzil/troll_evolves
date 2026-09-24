@@ -29,7 +29,7 @@ from hsmpace.core.simulate import (
     simulate_piece,
     tail_arrival_speed,
 )
-from hsmpace.core.studies import base_results
+from hsmpace.core.studies import base_results, sequence
 
 
 def _line(stands: list[tuple[str, float]], coiler_x: float = 200.0, v_start: float = 2.0) -> Line:
@@ -808,6 +808,35 @@ def test_empty_coilbox_tick_still_uses_the_box():
     assert any(e.kind == "coilbox_in" for e in res.events)
     assert res.occupancy
     assert all(o.piece_id == res.piece_id for o in res.occupancy)
+
+
+def test_unassigned_coiler_occupancy_is_not_working():
+    from hsmpace.example import example_case
+
+    case, _ = harmonise_tandem_speeds(example_case())
+    res = simulate_piece(case, case.products[0], coiler=case.line.get("DC2"))
+    by_id = {}
+    for o in res.occupancy:
+        if o.equipment_id in {"DC1", "DC2", "DC3"}:
+            by_id.setdefault(o.equipment_id, []).append(o)
+    assert by_id["DC2"] and all(o.working for o in by_id["DC2"])
+    assert by_id["DC1"] and all(not o.working for o in by_id["DC1"])
+    assert "DC3" not in by_id
+    stands = [o for o in res.occupancy if o.equipment_id == "F7"]
+    assert stands and all(o.working for o in stands)
+
+
+def test_shifted_sequence_keeps_coiler_working_flags():
+    from hsmpace.example import example_case
+
+    case, _ = harmonise_tandem_speeds(example_case())
+    sequenced = sequence(case, base_results(case), case.settings.pacing)
+    second = sequenced[1]
+    assert second.coiler_id == "DC2"
+    dc1 = [o for o in second.occupancy if o.equipment_id == "DC1"]
+    dc2 = [o for o in second.occupancy if o.equipment_id == "DC2"]
+    assert dc2 and all(o.working for o in dc2)
+    assert dc1 and all(not o.working for o in dc1)
 
 
 def test_mass_balance_holds_when_f1_bites_during_coilbox_payout():

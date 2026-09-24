@@ -65,10 +65,35 @@ def test_utility_rate_figure_plots_the_step_series():
     power = utility_rate_figure(usage, "power")
     assert water.data
     assert power.data
-    assert water.layout.yaxis.title.text == "Water [L/s]"
+    assert water.layout.yaxis.title.text == "Water [m³/h]"
     assert power.layout.yaxis.title.text == "Power [kW]"
     assert water.data[0].line.shape == "hv"
 
     empty = utility_rate_figure(UtilityReport((), (), (), 0.0, 0.0), "water")
     assert empty.layout.annotations
     assert "No consumption" in empty.layout.annotations[0].text
+
+
+def test_blocked_coiler_bars_are_translucent_with_passaggio_hover():
+    case, _ = harmonise_tandem_speeds(example_case())
+    results = sequence(case, base_results(case), case.settings.pacing)
+    fig = gantt_figure(case, results)
+
+    found_passaggio = False
+    found_avvolgimento = False
+    blocked_colors: list[str] = []
+    working_colors: list[str] = []
+    for trace in fig.data:
+        hover = list(trace.hovertext or [])
+        if any("passaggio (mandrino non assegnato)" in str(h) for h in hover):
+            found_passaggio = True
+            blocked_colors.append(str(trace.marker.color))
+        if any("avvolgimento" in str(h) for h in hover):
+            found_avvolgimento = True
+            working_colors.append(str(trace.marker.color))
+
+    assert found_passaggio
+    assert found_avvolgimento
+    assert any("0.4" in c and "rgba" in c for c in blocked_colors)
+    assert working_colors
+    assert all("0.4" not in c for c in working_colors)

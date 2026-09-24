@@ -52,7 +52,7 @@ def test_the_empty_template_has_the_sheets_and_headers(tmp_path):
     assert "occupy" in guide
     assert "relative change" in guide
     assert "Sheet Utilities" in guide
-    assert "L/s" in guide
+    assert "m3/h" in guide
     assert wb["Utilities"]["A1"].value == "equipment_id"
     assert wb["Utilities"].max_row == 1, "the empty template must contain no recipes"
 
@@ -229,6 +229,8 @@ def test_the_json_report_carries_segments_and_outcomes():
     assert report["gaps"][0]["ok"] is True
     assert report["utilities"]["water_m3"] > 0.0
     assert report["utilities"]["power_kwh"] > 0.0
+    occupancy = report["pieces"][0]["occupancy"]
+    assert any(o["equipment_id"].startswith("DC") and "working" in o for o in occupancy)
 
 
 def test_an_older_workbook_without_occupy_columns_still_loads(tmp_path):

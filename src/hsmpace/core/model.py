@@ -309,8 +309,9 @@ class Line:
 class UtilityRecipe:
     """Instantaneous consumption while a device is busy.
 
-    ``rate`` is L/s for water and kW for power. ``when`` is ``occupy`` (the
-    occupancy footprint) or ``rolling`` (stand occupancy only).
+    ``rate`` is m³/h for water and kW for power. ``when`` is ``occupy`` (the
+    occupancy footprint) or ``rolling`` (stand occupancy only). Coiler spans
+    with ``working=False`` (strip passing an unassigned mandrel) do not consume.
     """
 
     equipment_id: str

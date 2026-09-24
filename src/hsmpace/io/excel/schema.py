@@ -36,7 +36,10 @@ LAYOUT_COLUMNS = [
     (
         "occupy",
         "YES to include this device in occupancy (busy time). Empty = default: YES "
-        "for stand, coiler and coilbox; NO for marker and start",
+        "for stand, coiler and coilbox; NO for marker and start. On the Occupancy "
+        "chart a full bar is the machine working on that piece; slight transparency "
+        "is the strip occupying the space (e.g. DC1 while coiling on DC2), so you "
+        "cannot book that mandrel, but it does not consume as if coiling",
     ),
     (
         "occupy_before_m",
@@ -160,12 +163,12 @@ UTILITY_COLUMNS = [
     ("equipment_id", "Layout identifier this recipe applies to (DS1, R2, F1, …)"),
     (
         "utility",
-        "water | power. water rate is L/s, power rate is kW. Totals: m3 and kWh",
+        "water | power. water rate is m3/h, power rate is kW. Totals: m3 and kWh",
     ),
     (
         "rate",
         "Instantaneous consumption while the condition below holds. "
-        "water: litres per second. power: kW",
+        "water: cubic metres per hour. power: kW",
     ),
     (
         "when",
@@ -214,7 +217,7 @@ GUIDE_TEXT = [
     ("Units are fixed in the file, there is no unit column to fill in:", True),
     ("    positions and lengths in m, thicknesses and widths in mm,", False),
     ("    speeds in m/s, times in s, accelerations in m/s2.", False),
-    ("    utilities: water in L/s (totals in m3), electrical power in kW (totals in kWh).", False),
+    ("    utilities: water in m3/h (totals in m3), electrical power in kW (totals in kWh).", False),
     ("", False),
     ("Sheet Layout: the kind column", True),
     (
@@ -261,7 +264,10 @@ GUIDE_TEXT = [
         "is the overlap of that interval with the piece [tail, head], so a reversing bar "
         "can occupy the same descaler twice. Empty occupy: stands, coilers and the "
         "coilbox are included; markers and start are not. Empty footprints: the axis "
-        "alone, which for a stand is bite to tail-out.",
+        "alone, which for a stand is bite to tail-out. On the Occupancy chart a full bar "
+        "is the machine working on that piece; slight transparency means the strip occupies "
+        "the space (for example DC1 while coiling on DC2), so you cannot book that mandrel, "
+        "but it does not consume as if it were coiling.",
         False,
     ),
     ("", False),
@@ -445,9 +451,11 @@ GUIDE_TEXT = [
     (
         "Optional. Instantaneous water and electrical power while a device is busy, "
         "applied after the run onto occupancy intervals: they do not enter the event "
-        "loop. Overlapping pieces add. water rate is L/s, power rate is kW. "
+        "loop. Overlapping pieces add. water rate is m3/h, power rate is kW. "
         "Integrated totals are m3 of water and kWh. when=occupy uses the occupancy "
-        "footprint (descalers, coilers, coilbox, stands). when=rolling is stands only.",
+        "footprint (descalers, coilers, coilbox, stands). when=rolling is stands only. "
+        "A coiler that is only a passage (strip covering an unassigned mandrel) does "
+        "not consume water or power.",
         False,
     ),
     (

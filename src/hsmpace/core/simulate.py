@@ -56,7 +56,7 @@ from .model import (
     RollingPass,
     SpeedEvent,
 )
-from .occupancy import Occupancy, finalise_occupancy, stamp_piece
+from .occupancy import Occupancy, classify_working, finalise_occupancy, stamp_piece
 
 _MAX_ITER = 200_000
 _HORIZON = 2_000.0
@@ -971,8 +971,12 @@ def simulate_piece(
         tail=tail_phys,
         head_virtual=head_virtual,
         events=tuple(events),
-        occupancy=stamp_piece(
-            finalise_occupancy(line, head_phys, tail_phys, occupancy), piece_id
+        occupancy=classify_working(
+            stamp_piece(
+                finalise_occupancy(line, head_phys, tail_phys, occupancy), piece_id
+            ),
+            line,
+            coiler_id,
         ),
         length_kinematic=length_kin,
         length_geometric=length_geo,
@@ -1074,6 +1078,7 @@ def shift_result(result: PieceResult, dt: float, piece_id: str | None = None) ->
                 o.t_in + dt,
                 o.t_out + dt,
                 piece_id=piece_id or result.piece_id,
+                working=o.working,
             )
             for o in result.occupancy
         ),
