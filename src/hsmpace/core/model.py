@@ -250,6 +250,9 @@ class SimSettings:
     not declare its own."""
     coiler_v_final: float = 1.0
     """Speed the tail must have when it reaches the coiler."""
+    tunnel_furnace: bool = True
+    """True: x=0 is the furnace exit, head released there. False (walking beam):
+    x=0 is the furnace centre, the slab midpoint sits there at release."""
 
 
 @dataclass(frozen=True)

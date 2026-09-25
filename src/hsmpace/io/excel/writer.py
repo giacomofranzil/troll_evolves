@@ -204,6 +204,7 @@ def write_case(case: Case, path: str | Path, include_data: bool = True) -> Path:
         "mc_seed": s.mc_seed,
         "table_accel_mps2": s.table_accel,
         "coiler_v_final_mps": s.coiler_v_final,
+        "tunnel_furnace": _bool(s.tunnel_furnace),
         "max_time_s": s.max_time,
         "time_axis_down": _bool(s.time_axis_down),
     }

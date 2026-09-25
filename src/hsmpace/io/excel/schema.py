@@ -199,6 +199,12 @@ SIM_KEYS = [
     ("mc_seed", 20260831, "Seed of the random generator, for reproducible results"),
     ("table_accel_mps2", 1.0, "Default roller table acceleration, m/s2"),
     ("coiler_v_final_mps", 1.0, "Speed the tail must have when it reaches the coiler, m/s"),
+    (
+        "tunnel_furnace",
+        "YES",
+        "YES: x=0 is the furnace exit (head released there). NO: walking beam, "
+        "x=0 is the furnace centre (slab midpoint at release)",
+    ),
     ("max_time_s", 1800.0, "Maximum simulation time of a single piece, s"),
     ("time_axis_down", "YES", "YES for time increasing downwards on the diagram"),
 ]
@@ -226,9 +232,10 @@ GUIDE_TEXT = [
         False,
     ),
     (
-        "    start    the point where the piece is released, normally the furnace exit. "
-        "Exactly one row must carry it. At release the head sits here and the tail one "
-        "slab length further upstream.",
+        "    start    the point where the piece is released. Exactly one row must carry "
+        "it. Tunnel furnace (Simulation tunnel_furnace YES): this is the furnace exit, "
+        "the head sits here and the tail one slab length upstream. Walking beam (NO): "
+        "this is the furnace centre, the slab midpoint sits here.",
         False,
     ),
     (
@@ -462,6 +469,18 @@ GUIDE_TEXT = [
         "Leave the sheet empty, or omit it from an older workbook, to skip the "
         "calculation. A recipe on a device with occupy off is reported and consumes "
         "nothing.",
+        False,
+    ),
+    ("", False),
+    ("TRoll XML import", True),
+    (
+        "A TRoll ProcessData dump can be opened instead of a workbook. It is mapped onto "
+        "this same Case: TRoll is not the internal schema. Predicted exit speed of the "
+        "head (m/s) and predicted thickness/width become the pass schedule. SpeedHead, "
+        "SpeedTail and roll rpm are ignored. Cooling banks are omitted. Coilers are not "
+        "in TRoll: add coiler rows with x_m after import. If a coilbox is present, "
+        "coiling speed defaults to the last rougher exit and uncoiling to F1 entry. "
+        "Products are a catalogue; set piece_products on this Simulation sheet.",
         False,
     ),
     ("", False),

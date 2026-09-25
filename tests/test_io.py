@@ -53,6 +53,9 @@ def test_the_empty_template_has_the_sheets_and_headers(tmp_path):
     assert "relative change" in guide
     assert "Sheet Utilities" in guide
     assert "m3/h" in guide
+    assert "TRoll XML" in guide
+    assert "Walking beam" in guide
+    assert "tunnel_furnace" in guide
     assert wb["Utilities"]["A1"].value == "equipment_id"
     assert wb["Utilities"].max_row == 1, "the empty template must contain no recipes"
 
@@ -69,6 +72,7 @@ def test_json_round_trip_preserves_the_case():
     assert payload["mill_type"] == "hsm"
     assert payload["contract_version"] == "1"
     assert payload["utilities"][0]["equipment_id"] == "DS1"
+    assert payload["settings"]["tunnel_furnace"] is True
 
 
 def test_parsing_errors_point_at_sheet_and_cell(tmp_path):
@@ -333,11 +337,24 @@ def test_unknown_mill_type_is_rejected():
     assert any("mill_type" in m and "plate" in m for m in messages)
 
 
-def test_troll_xml_import_is_a_documented_boundary():
+def test_an_older_workbook_without_tunnel_furnace_defaults_to_tunnel(tmp_path):
+    path = write_case(example_case(), tmp_path / "no_tunnel.xlsx")
+    wb = load_workbook(path)
+    ws = wb["Simulation"]
+    for row in range(2, ws.max_row + 1):
+        if ws.cell(row=row, column=1).value == "tunnel_furnace":
+            ws.delete_rows(row)
+            break
+    wb.save(path)
+
+    loaded = read_case(path)
+    assert loaded.settings.tunnel_furnace is True
+
+
+def test_troll_xml_mapper_is_available():
     from hsmpace.io.troll_xml import case_from_troll
 
-    with pytest.raises(NotImplementedError, match="TRoll XML"):
-        case_from_troll("dump.xml")
+    assert callable(case_from_troll)
 
 
 def test_io_excel_shim_still_imports():

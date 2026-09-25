@@ -26,8 +26,13 @@ def _load(path: str | None) -> "object":
     if path is None:
         return example_case()
     p = Path(path)
-    if p.suffix.lower() == ".json":
+    suffix = p.suffix.lower()
+    if suffix == ".json":
         return case_from_dict(json.loads(p.read_text(encoding="utf-8")))
+    if suffix == ".xml":
+        from .io.troll_xml import case_from_troll
+
+        return case_from_troll(p)
     return read_case(p)
 
 
@@ -153,12 +158,12 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=_cmd_template)
 
     p = sub.add_parser("to-json", help="convert an input into JSON for the Level 2 system")
-    p.add_argument("input", nargs="?", help=".xlsx or .json file (empty = built-in example)")
+    p.add_argument("input", nargs="?", help=".xlsx, .json or TRoll .xml (empty = built-in example)")
     p.add_argument("-o", "--output", help="JSON file to write")
     p.set_defaults(func=_cmd_to_json)
 
     p = sub.add_parser("run", help="simulate and analyse the gap")
-    p.add_argument("input", nargs="?", help=".xlsx or .json file (empty = built-in example)")
+    p.add_argument("input", nargs="?", help=".xlsx, .json or TRoll .xml (empty = built-in example)")
     p.add_argument("--pacing", type=float, help="override the pacing from the file")
     p.add_argument("--scan", action="store_true", help="compute the gap versus pacing curve")
     p.add_argument(

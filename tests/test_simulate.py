@@ -864,3 +864,11 @@ def test_follower_gap_sees_the_busy_coilbox_axis():
     if second.t_start < t < second.t_end:
         expected = 100.0 - second.head.x_at(t)
         assert analysis.series.value_at(t) == pytest.approx(expected, abs=0.05)
+
+
+def test_walking_beam_puts_the_slab_midpoint_on_the_start_row():
+    case = _case(_line([("R", 50.0)]), [_pass(1, "R", FWD, 100.0, 50.0, 4.0)], slab_len=10.0)
+    case = replace(case, settings=replace(case.settings, tunnel_furnace=False))
+    res = simulate_piece(case, case.products[0])
+    assert res.head.x_at(0.0) == pytest.approx(5.0)
+    assert res.tail.x_at(0.0) == pytest.approx(-5.0)

@@ -86,8 +86,11 @@ extremity downstream of every engaged stand is faster than the upstream one; it 
 
 ## 3. Initialisation
 
-* `t = t_release`, `x_head = x_start`, `x_tail = x_start - slab_length`, `direction = +1`,
-  `v_lead = 0`, `lam = 1`, `zoom_factor = 1`
+* `t = t_release`, `direction = +1`, `v_lead = 0`, `lam = 1`, `zoom_factor = 1`
+* Tunnel furnace (default): `x_head = x_start`, `x_tail = x_start - slab_length`. The start
+  row is the furnace exit.
+* Walking beam: `x_head = x_start + slab_length / 2`, `x_tail = x_start - slab_length / 2`.
+  The start row is the furnace centre (slab midpoint at rest there).
 * `nominal_target` = approach speed of the first pass, that is the `approach_v` field when present,
   otherwise `v_exit / lambda` of the first pass
 * `stand_accel` is seeded from the starting equipment and overwritten at the first bite. Until then

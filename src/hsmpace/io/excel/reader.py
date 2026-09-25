@@ -571,6 +571,7 @@ def _read_settings(
         time_axis_down=flag("time_axis_down", defaults.time_axis_down),
         table_accel=num("table_accel_mps2", defaults.table_accel),
         coiler_v_final=num("coiler_v_final_mps", defaults.coiler_v_final),
+        tunnel_furnace=flag("tunnel_furnace", defaults.tunnel_furnace),
     )
 
 
