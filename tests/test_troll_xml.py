@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -74,6 +75,12 @@ def test_troll_coilbox_defaults_from_last_rougher_and_f1_entry():
     assert p.coilbox_v_uncoil == pytest.approx(1.2)
 
 
+def test_source_name_is_used_in_import_warnings():
+    case = case_from_troll(FIXTURE, source_name="Marcegaglia_CBX.xml")
+    assert any("Marcegaglia_CBX.xml" in w for w in case.warnings)
+    assert not any(FIXTURE.name in w for w in case.warnings)
+
+
 def test_walking_beam_releases_the_slab_midpoint_at_the_furnace():
     case = case_from_troll(FIXTURE)
     res = simulate_piece(case, case.products[0])
@@ -130,6 +137,17 @@ def test_real_cbx_dump_maps_r1_r2_coilbox_and_skips_cooling():
     p = next(pr for pr in case.products if pr.id == "01PROD")
     last_rm = next(rp for rp in reversed(p.passes) if rp.equipment_id == "R2")
     first_fm = next(rp for rp in p.passes if rp.equipment_id == "F1")
+    piece = next(
+        el
+        for el in ET.parse(REAL_CBX).getroot().find("Pieces")
+        if (el.get("PieceName") or el.get("PieceID")) == "01PROD"
+    )
+    f1_entry = float(
+        next(pas for pas in piece.find("PassList") if pas.get("DeviceName") == "F1")
+        .find("SpeedData")
+        .findtext("PredictedEntrySpeedHead")
+    )
     assert p.coilbox_v_coil == pytest.approx(last_rm.v_exit)
+    assert p.coilbox_v_uncoil == pytest.approx(f1_entry)
     assert first_fm.direction == FWD
     assert all(rp.direction == FWD for rp in p.passes if rp.equipment_id.startswith("F"))

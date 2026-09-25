@@ -52,7 +52,7 @@ def _load_from_bytes(payload: bytes, name: str):
         handle.write(payload)
         path = Path(handle.name)
     try:
-        case = case_from_troll(path) if suffix == ".xml" else read_case(path)
+        case = case_from_troll(path, source_name=name) if suffix == ".xml" else read_case(path)
     finally:
         path.unlink(missing_ok=True)
     return _prepare(case)
@@ -221,6 +221,8 @@ def main() -> None:
         "Zoom rolling uses the same virtual-head trigger for every mandrel; "
         "pinning and the tail slowdown use the assigned coiler."
     )
+    for remark in case.warnings:
+        st.warning(remark)
 
     cols = st.columns(4)
     cols[0].metric("Minimum gap", f"{worst.min_gap:.1f} m" if worst else "no interaction")
@@ -472,8 +474,6 @@ def main() -> None:
         else:
             st.success("The tandem speeds entered are already consistent with the mass balance.")
 
-        for remark in case.warnings:
-            st.warning(remark)
         for res in results[:1]:
             for warning in res.warnings:
                 st.warning(warning)

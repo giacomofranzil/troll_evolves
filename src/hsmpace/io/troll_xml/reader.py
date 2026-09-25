@@ -44,7 +44,7 @@ class TrollImportError(ValueError):
     """The dump cannot be mapped onto a Case."""
 
 
-def case_from_troll(path: str | Path) -> Case:
+def case_from_troll(path: str | Path, source_name: str | None = None) -> Case:
     """Map a TRoll XML dump onto the canonical Case."""
     xml_path = Path(path)
     try:
@@ -55,7 +55,7 @@ def case_from_troll(path: str | Path) -> Case:
         raise TrollImportError(
             f"unrecognised TRoll root {root.tag!r}, expected ProcessData"
         )
-    return _case_from_root(root, xml_path.name)
+    return _case_from_root(root, source_name or xml_path.name)
 
 
 def _leaf(parent: ET.Element | None, tag: str, default: str | None = None) -> str | None:
