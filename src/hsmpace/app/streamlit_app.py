@@ -27,6 +27,7 @@ from hsmpace.core.tracking import parse_tracking
 from hsmpace.core.utilities import analyse_utilities
 from hsmpace.example import example_case
 from hsmpace.io.excel import ValidationError, read_case, write_case, write_results
+from hsmpace.io.troll_xml import case_from_troll
 from hsmpace.viz import (
     TRACE_POINT_CHOICES,
     gantt_figure,
@@ -46,11 +47,12 @@ XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 @st.cache_data(show_spinner=False)
 def _load_from_bytes(payload: bytes, name: str):
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as handle:
+    suffix = ".xml" if name.lower().endswith(".xml") else ".xlsx"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
         handle.write(payload)
         path = Path(handle.name)
     try:
-        case = read_case(path)
+        case = case_from_troll(path, source_name=name) if suffix == ".xml" else read_case(path)
     finally:
         path.unlink(missing_ok=True)
     return _prepare(case)
@@ -103,10 +105,11 @@ def main() -> None:
 
     with st.sidebar:
         st.header("Input")
-        uploaded = st.file_uploader("Input workbook (.xlsx)", type=["xlsx"])
+        uploaded = st.file_uploader("Input workbook (.xlsx) or TRoll dump (.xml)", type=["xlsx", "xml"])
         st.caption(
             "With no file loaded the built-in example mill is used, with invented "
-            "but plausible data."
+            "but plausible data. A TRoll XML is mapped onto the same case: add coiler "
+            "rows afterwards. Cooling banks are not imported."
         )
         st.download_button(
             "Download the empty template",
@@ -218,6 +221,8 @@ def main() -> None:
         "Zoom rolling uses the same virtual-head trigger for every mandrel; "
         "pinning and the tail slowdown use the assigned coiler."
     )
+    for remark in case.warnings:
+        st.warning(remark)
 
     cols = st.columns(4)
     cols[0].metric("Minimum gap", f"{worst.min_gap:.1f} m" if worst else "no interaction")
@@ -469,8 +474,6 @@ def main() -> None:
         else:
             st.success("The tandem speeds entered are already consistent with the mass balance.")
 
-        for remark in case.warnings:
-            st.warning(remark)
         for res in results[:1]:
             for warning in res.warnings:
                 st.warning(warning)

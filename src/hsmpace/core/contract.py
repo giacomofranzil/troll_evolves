@@ -144,6 +144,7 @@ def case_to_dict(case: Case) -> dict:
             "mc_seed": case.settings.mc_seed,
             "table_accel_mps2": case.settings.table_accel,
             "coiler_v_final_mps": case.settings.coiler_v_final,
+            "tunnel_furnace": case.settings.tunnel_furnace,
             "max_time_s": case.settings.max_time,
             "time_axis_down": case.settings.time_axis_down,
         },
@@ -260,6 +261,7 @@ def case_from_dict(data: dict) -> Case:
         mc_seed=int(raw.get("mc_seed", defaults.mc_seed)),
         table_accel=float(raw.get("table_accel_mps2", defaults.table_accel)),
         coiler_v_final=float(raw.get("coiler_v_final_mps", defaults.coiler_v_final)),
+        tunnel_furnace=bool(raw.get("tunnel_furnace", defaults.tunnel_furnace)),
         max_time=float(raw.get("max_time_s", defaults.max_time)),
         time_axis_down=bool(raw.get("time_axis_down", defaults.time_axis_down)),
     )

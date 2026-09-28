@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProcessData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <PlantData PlantName="Example HSM" PlantDescription="R1 + R2 + CBX + FM">
+    <ReverseLength>4</ReverseLength>
+    <ReverseTime>3</ReverseTime>
+    <HasTunnelFurnace>false</HasTunnelFurnace>
+  </PlantData>
+  <PlantMaterials />
+  <Devices>
+    <Device DeviceID="1" DeviceType="RoughingStand" DeviceTypeName="Roughing Stand" DeviceName="R1">
+      <DeviceFlags IsLastRollingDevice="false" />
+      <EntryData><DistanceFromPreviousDevice>100</DistanceFromPreviousDevice></EntryData>
+      <ProcessData>
+        <ReversingLenDownStream>4</ReversingLenDownStream>
+        <ReversingLenUpStream>6</ReversingLenUpStream>
+      </ProcessData>
+    </Device>
+    <Device DeviceID="2" DeviceType="RoughingStand" DeviceTypeName="Roughing Stand" DeviceName="R2">
+      <DeviceFlags IsLastRollingDevice="false" />
+      <EntryData><DistanceFromPreviousDevice>78</DistanceFromPreviousDevice></EntryData>
+      <ProcessData>
+        <ReversingLenDownStream>4</ReversingLenDownStream>
+        <ReversingLenUpStream>6</ReversingLenUpStream>
+      </ProcessData>
+    </Device>
+    <Device DeviceID="3" DeviceType="CoilBox" DeviceTypeName="Coilbox" DeviceName="CBX">
+      <DeviceFlags IsLastRollingDevice="false" />
+      <EntryData><DistanceFromPreviousDevice>78</DistanceFromPreviousDevice></EntryData>
+    </Device>
+    <Device DeviceID="4" DeviceType="HeatCover" DeviceTypeName="Heat Cover" DeviceName="WD2">
+      <DeviceFlags IsLastRollingDevice="false" />
+      <EntryData><DistanceFromPreviousDevice>15.5</DistanceFromPreviousDevice></EntryData>
+    </Device>
+    <Device DeviceID="5" DeviceType="FinishingStand" DeviceTypeName="Finishing Stand" DeviceName="F1">
+      <DeviceFlags IsLastRollingDevice="false" />
+      <EntryData><DistanceFromPreviousDevice>7</DistanceFromPreviousDevice></EntryData>
+    </Device>
+    <Device DeviceID="6" DeviceType="FinishingStand" DeviceTypeName="Finishing Stand" DeviceName="F7">
+      <DeviceFlags IsLastRollingDevice="true" />
+      <EntryData><DistanceFromPreviousDevice>5</DistanceFromPreviousDevice></EntryData>
+    </Device>
+    <Device DeviceID="7" DeviceType="CoolLaminarPower380" DeviceTypeName="Cooling" DeviceName="PL1">
+      <DeviceFlags IsLastRollingDevice="false" />
+      <EntryData><DistanceFromPreviousDevice>4.94</DistanceFromPreviousDevice></EntryData>
+    </Device>
+    <Device DeviceID="8" DeviceType="RollerTable" DeviceTypeName="Roller Table" DeviceName="RT1">
+      <DeviceFlags IsLastRollingDevice="false" />
+      <EntryData><DistanceFromPreviousDevice>10</DistanceFromPreviousDevice></EntryData>
+    </Device>
+  </Devices>
+  <Pieces>
+    <Piece PieceID="1" PieceName="P1" PlantMaterialName="Grade A">
+      <SlabData>
+        <SlabThickn>220</SlabThickn>
+        <SlabWidth>1200</SlabWidth>
+        <SlabLength>12</SlabLength>
+        <FurnaceTranspSpeed>90</FurnaceTranspSpeed>
+      </SlabData>
+      <StripData>
+        <TargetStripThickn>4</TargetStripThickn>
+      </StripData>
+      <SpeedupData>
+        <InitialSpeedUpLenght>100</InitialSpeedUpLenght>
+        <FinalSpeedUpIncrement>-7</FinalSpeedUpIncrement>
+        <SpeedUpAccel>10</SpeedUpAccel>
+      </SpeedupData>
+      <PassList>
+        <Pass PieceID="1" DeviceID="1" DeviceName="R1" PassNumber="1">
+          <InputData />
+          <PositionData />
+          <SpeedData>
+            <PredictedEntrySpeedHead>2.0</PredictedEntrySpeedHead>
+            <PredictedExitSpeedHead>2.5</PredictedExitSpeedHead>
+            <SpeedHead>999</SpeedHead>
+            <SpeedTail>999</SpeedTail>
+          </SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>220</PredictedEntryThickn>
+            <PredictedExitThickn>150</PredictedExitThickn>
+            <PredictedEntryWidth>1200</PredictedEntryWidth>
+            <PredictedExitWidth>1210</PredictedExitWidth>
+          </GeometricalData>
+          <TimeData>
+            <PredictedPassReversingTime>3</PredictedPassReversingTime>
+          </TimeData>
+          <PassFlags>
+            <IsMaterialReversing>false</IsMaterialReversing>
+            <MovingUpStream>false</MovingUpStream>
+          </PassFlags>
+        </Pass>
+        <Pass PieceID="1" DeviceID="1" DeviceName="R1" PassNumber="2">
+          <SpeedData>
+            <PredictedExitSpeedHead>3.0</PredictedExitSpeedHead>
+          </SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>150</PredictedEntryThickn>
+            <PredictedExitThickn>100</PredictedExitThickn>
+            <PredictedEntryWidth>1210</PredictedEntryWidth>
+            <PredictedExitWidth>1215</PredictedExitWidth>
+          </GeometricalData>
+          <TimeData />
+          <PassFlags>
+            <IsMaterialReversing>true</IsMaterialReversing>
+            <MovingUpStream>true</MovingUpStream>
+          </PassFlags>
+        </Pass>
+        <Pass PieceID="1" DeviceID="2" DeviceName="R2" PassNumber="1">
+          <SpeedData>
+            <PredictedExitSpeedHead>5.0</PredictedExitSpeedHead>
+          </SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>100</PredictedEntryThickn>
+            <PredictedExitThickn>40</PredictedExitThickn>
+            <PredictedEntryWidth>1215</PredictedEntryWidth>
+            <PredictedExitWidth>1204</PredictedExitWidth>
+          </GeometricalData>
+          <TimeData />
+          <PassFlags>
+            <IsMaterialReversing>false</IsMaterialReversing>
+            <MovingUpStream>false</MovingUpStream>
+          </PassFlags>
+        </Pass>
+        <Pass PieceID="1" DeviceID="3" DeviceName="CBX" PassNumber="1">
+          <SpeedData>
+            <PredictedExitSpeedHead>5.0</PredictedExitSpeedHead>
+          </SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>40</PredictedEntryThickn>
+            <PredictedExitThickn>40</PredictedExitThickn>
+            <PredictedEntryWidth>1204</PredictedEntryWidth>
+            <PredictedExitWidth>1204</PredictedExitWidth>
+          </GeometricalData>
+          <PassFlags>
+            <MovingUpStream>false</MovingUpStream>
+          </PassFlags>
+        </Pass>
+        <Pass PieceID="1" DeviceID="4" DeviceName="WD2" PassNumber="1">
+          <SpeedData>
+            <PredictedExitSpeedHead>5.0</PredictedExitSpeedHead>
+            <SpeedHead>31</SpeedHead>
+          </SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>40</PredictedEntryThickn>
+            <PredictedExitThickn>40</PredictedExitThickn>
+            <PredictedEntryWidth>1204</PredictedEntryWidth>
+            <PredictedExitWidth>1204</PredictedExitWidth>
+          </GeometricalData>
+          <PassFlags>
+            <IsMaterialReversingInCoilbox>true</IsMaterialReversingInCoilbox>
+            <MovingUpStream>true</MovingUpStream>
+          </PassFlags>
+        </Pass>
+        <Pass PieceID="1" DeviceID="5" DeviceName="F1" PassNumber="1">
+          <SpeedData>
+            <PredictedEntrySpeedHead>1.2</PredictedEntrySpeedHead>
+            <PredictedExitSpeedHead>2.0</PredictedExitSpeedHead>
+            <PredictedExitSpeedTail>2.1</PredictedExitSpeedTail>
+          </SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>40</PredictedEntryThickn>
+            <PredictedExitThickn>20</PredictedExitThickn>
+            <PredictedEntryWidth>1204</PredictedEntryWidth>
+            <PredictedExitWidth>1208</PredictedExitWidth>
+          </GeometricalData>
+          <PassFlags>
+            <MovingUpStream>true</MovingUpStream>
+          </PassFlags>
+        </Pass>
+        <Pass PieceID="1" DeviceID="6" DeviceName="F7" PassNumber="1">
+          <SpeedData>
+            <PredictedEntrySpeedHead>6.0</PredictedEntrySpeedHead>
+            <PredictedExitSpeedHead>8.0</PredictedExitSpeedHead>
+            <PredictedExitSpeedTail>7.44</PredictedExitSpeedTail>
+          </SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>20</PredictedEntryThickn>
+            <PredictedExitThickn>4</PredictedExitThickn>
+            <PredictedEntryWidth>1208</PredictedEntryWidth>
+            <PredictedExitWidth>1212</PredictedExitWidth>
+          </GeometricalData>
+          <PassFlags>
+            <MovingUpStream>true</MovingUpStream>
+          </PassFlags>
+        </Pass>
+        <Pass PieceID="1" DeviceID="7" DeviceName="PL1" PassNumber="1">
+          <SpeedData><PredictedExitSpeedHead>8.0</PredictedExitSpeedHead></SpeedData>
+          <GeometricalData>
+            <PredictedEntryThickn>4</PredictedEntryThickn>
+            <PredictedExitThickn>4</PredictedExitThickn>
+            <PredictedEntryWidth>0</PredictedEntryWidth>
+            <PredictedExitWidth>0</PredictedExitWidth>
+          </GeometricalData>
+          <PassFlags><MovingUpStream>false</MovingUpStream></PassFlags>
+        </Pass>
+      </PassList>
+    </Piece>
+  </Pieces>
+</ProcessData>

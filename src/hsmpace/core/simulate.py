@@ -185,6 +185,8 @@ def simulate_piece(
 
     t = t_release
     x_head = line.start.x
+    if not settings.tunnel_furnace:
+        x_head = line.start.x + 0.5 * product.slab_len
     x_tail = x_head - product.slab_len
     x_virt = x_head
     direction = FWD
