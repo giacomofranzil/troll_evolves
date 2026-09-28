@@ -21,19 +21,35 @@ from .io.excel import ValidationError, read_case, write_case, write_results
 
 DEFAULT_PORT = 8731
 
+_XML_NOT_A_RUN = (
+    "TRoll XML is not a simulation input. Map it onto a workbook first:\n"
+    "  hsmpace import dump.xml case.xlsx"
+)
+
 
 def _load(path: str | None) -> "object":
     if path is None:
         return example_case()
     p = Path(path)
     suffix = p.suffix.lower()
+    if suffix == ".xml":
+        raise ValueError(_XML_NOT_A_RUN)
     if suffix == ".json":
         return case_from_dict(json.loads(p.read_text(encoding="utf-8")))
-    if suffix == ".xml":
-        from .io.troll_xml import case_from_troll
-
-        return case_from_troll(p)
     return read_case(p)
+
+
+def _cmd_import(args: argparse.Namespace) -> int:
+    from .io.troll_xml import write_troll_case
+
+    xml = Path(args.input)
+    if xml.suffix.lower() != ".xml":
+        raise ValueError("import expects a TRoll ProcessData .xml dump")
+    case = write_troll_case(xml, args.output)
+    for remark in case.warnings:
+        print(f"Warning: {remark}")
+    print(f"Written the mapped workbook: {args.output}")
+    return 0
 
 
 def _cmd_template(args: argparse.Namespace) -> int:
@@ -157,13 +173,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.set_defaults(func=_cmd_template)
 
+    p = sub.add_parser(
+        "import",
+        help="map a TRoll ProcessData dump onto an input workbook",
+    )
+    p.add_argument("input", help="TRoll ProcessData .xml")
+    p.add_argument("output", help="path of the .xlsx workbook to write")
+    p.set_defaults(func=_cmd_import)
+
     p = sub.add_parser("to-json", help="convert an input into JSON for the Level 2 system")
-    p.add_argument("input", nargs="?", help=".xlsx, .json or TRoll .xml (empty = built-in example)")
+    p.add_argument("input", nargs="?", help=".xlsx or .json file (empty = built-in example)")
     p.add_argument("-o", "--output", help="JSON file to write")
     p.set_defaults(func=_cmd_to_json)
 
     p = sub.add_parser("run", help="simulate and analyse the gap")
-    p.add_argument("input", nargs="?", help=".xlsx, .json or TRoll .xml (empty = built-in example)")
+    p.add_argument("input", nargs="?", help=".xlsx or .json file (empty = built-in example)")
     p.add_argument("--pacing", type=float, help="override the pacing from the file")
     p.add_argument("--scan", action="store_true", help="compute the gap versus pacing curve")
     p.add_argument(

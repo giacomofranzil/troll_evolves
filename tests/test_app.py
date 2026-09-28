@@ -54,3 +54,14 @@ def test_a_tight_pacing_produces_a_violation():
     assert not at.exception, [e.value for e in at.exception]
     outcome = next(m for m in at.metric if m.label == "Outcome")
     assert outcome.value == "violation"
+
+
+def test_xml_is_mapped_to_a_workbook_without_simulating():
+    from hsmpace.app.streamlit_app import _workbook_from_xml_bytes
+
+    xml = Path(__file__).parent / "data" / "troll_cbx.xml"
+    payload, summary = _workbook_from_xml_bytes(xml.read_bytes(), "troll_cbx.xml")
+    assert payload[:2] == b"PK"
+    assert summary["n_products"] == 1
+    assert any(row["id"] == "CBX" and row["kind"] == "coilbox" for row in summary["equipment"])
+    assert any("troll_cbx.xml" in w for w in summary["warnings"])

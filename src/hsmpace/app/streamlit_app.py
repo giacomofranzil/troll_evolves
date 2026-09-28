@@ -47,15 +47,39 @@ XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 @st.cache_data(show_spinner=False)
 def _load_from_bytes(payload: bytes, name: str):
-    suffix = ".xml" if name.lower().endswith(".xml") else ".xlsx"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as handle:
         handle.write(payload)
         path = Path(handle.name)
     try:
-        case = case_from_troll(path, source_name=name) if suffix == ".xml" else read_case(path)
+        case = read_case(path)
     finally:
         path.unlink(missing_ok=True)
     return _prepare(case)
+
+
+@st.cache_data(show_spinner=False)
+def _workbook_from_xml_bytes(payload: bytes, name: str):
+    with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as handle:
+        handle.write(payload)
+        xml_path = Path(handle.name)
+    xlsx_path = xml_path.with_suffix(".xlsx")
+    try:
+        case = case_from_troll(xml_path, source_name=name)
+        write_case(case, xlsx_path)
+        xlsx = xlsx_path.read_bytes()
+    finally:
+        xml_path.unlink(missing_ok=True)
+        xlsx_path.unlink(missing_ok=True)
+    summary = {
+        "mill": case.info.get("mill_name") or "",
+        "warnings": list(case.warnings),
+        "n_products": len(case.products),
+        "equipment": [
+            {"id": e.id, "kind": e.kind, "x [m]": e.x, "label": e.label}
+            for e in case.line.equipment
+        ],
+    }
+    return xlsx, summary
 
 
 @st.cache_data(show_spinner=False)
@@ -108,8 +132,9 @@ def main() -> None:
         uploaded = st.file_uploader("Input workbook (.xlsx) or TRoll dump (.xml)", type=["xlsx", "xml"])
         st.caption(
             "With no file loaded the built-in example mill is used, with invented "
-            "but plausible data. A TRoll XML is mapped onto the same case: add coiler "
-            "rows afterwards. Cooling banks are not imported."
+            "but plausible data. A TRoll XML is mapped onto a workbook: download it, "
+            "add coiler rows and the piece sequence, then load the .xlsx. Cooling "
+            "banks are not imported. XML is not simulated."
         )
         st.download_button(
             "Download the empty template",
@@ -125,6 +150,33 @@ def main() -> None:
             mime=XLSX_MIME,
             width="stretch",
         )
+
+    if uploaded is not None and uploaded.name.lower().endswith(".xml"):
+        try:
+            xlsx_bytes, summary = _workbook_from_xml_bytes(uploaded.getvalue(), uploaded.name)
+        except Exception as exc:  # noqa: BLE001 - readable message instead of a traceback
+            st.error(f"Error while reading the file: {exc}")
+            st.stop()
+        st.info(
+            "This TRoll dump is mapped onto an input workbook. It is not simulated. "
+            "Download the file, add coiler rows (`kind=coiler`, `x_m`) and "
+            "`piece_products`, then load the .xlsx."
+        )
+        for remark in summary["warnings"]:
+            st.warning(remark)
+        stem = Path(uploaded.name).stem
+        st.download_button(
+            "Download the mapped workbook",
+            data=xlsx_bytes,
+            file_name=f"{stem}.xlsx",
+            mime=XLSX_MIME,
+        )
+        cols = st.columns(2)
+        cols[0].metric("Mill", summary["mill"] or "—")
+        cols[1].metric("Products in the catalogue", str(summary["n_products"]))
+        st.subheader("Layout")
+        st.dataframe(summary["equipment"], width="stretch", hide_index=True)
+        st.stop()
 
     try:
         if uploaded is not None:

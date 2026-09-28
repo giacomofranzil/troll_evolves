@@ -151,3 +151,35 @@ def test_real_cbx_dump_maps_r1_r2_coilbox_and_skips_cooling():
     assert p.coilbox_v_uncoil == pytest.approx(f1_entry)
     assert first_fm.direction == FWD
     assert all(rp.direction == FWD for rp in p.passes if rp.equipment_id.startswith("F"))
+
+
+def test_write_troll_case_is_the_import_artefact(tmp_path):
+    from hsmpace.io.troll_xml import write_troll_case
+
+    dest = tmp_path / "mapped.xlsx"
+    write_troll_case(FIXTURE, dest, source_name="troll_cbx.xml")
+    loaded = read_case(dest)
+    notes = loaded.info.get("notes") or ""
+    assert "Imported from TRoll XML (troll_cbx.xml)" in notes
+    assert "cooling" in notes.lower()
+    assert loaded.line.get("CBX").kind == "coilbox"
+    assert loaded.products[0].coilbox_v_coil == pytest.approx(5.0)
+    assert loaded.products[0].coilbox_v_uncoil == pytest.approx(1.2)
+    assert not any(e.kind == KIND_COILER for e in loaded.line.equipment)
+
+
+def test_cli_import_writes_workbook_and_run_rejects_xml(tmp_path, capsys):
+    from hsmpace.cli import main
+
+    dest = tmp_path / "from_cli.xlsx"
+    assert main(["import", str(FIXTURE), str(dest)]) == 0
+    assert dest.exists()
+    out = capsys.readouterr().out
+    assert "mapped workbook" in out.lower() or "Written the mapped workbook" in out
+
+    assert main(["run", str(FIXTURE)]) == 1
+    err = capsys.readouterr().err
+    assert "not a simulation input" in err
+    assert main(["to-json", str(FIXTURE)]) == 1
+    err = capsys.readouterr().err
+    assert "not a simulation input" in err
