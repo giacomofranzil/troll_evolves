@@ -474,13 +474,14 @@ GUIDE_TEXT = [
     ("", False),
     ("TRoll XML import", True),
     (
-        "A TRoll ProcessData dump can be opened instead of a workbook. It is mapped onto "
-        "this same Case: TRoll is not the internal schema. Predicted exit speed of the "
-        "head (m/s) and predicted thickness/width become the pass schedule. SpeedHead, "
-        "SpeedTail and roll rpm are ignored. Cooling banks are omitted. Coilers are not "
-        "in TRoll: add coiler rows with x_m after import. If a coilbox is present, "
-        "coiling speed defaults to the last rougher exit and uncoiling to F1 entry. "
-        "Products are a catalogue; set piece_products on this Simulation sheet.",
+        "A TRoll ProcessData dump is mapped onto this workbook (hsmpace import, or "
+        "upload .xml in the app and download the result). It is not simulated until "
+        "this .xlsx is loaded. TRoll is not the internal schema. Predicted exit speed "
+        "of the head (m/s) and predicted thickness/width become the pass schedule. "
+        "SpeedHead, SpeedTail and roll rpm are ignored. Cooling banks are omitted. "
+        "Coilers are not in TRoll: add coiler rows with x_m here. If a coilbox is "
+        "present, coiling speed defaults to the last rougher exit and uncoiling to F1 "
+        "entry. Products are a catalogue; set piece_products on this Simulation sheet.",
         False,
     ),
     ("", False),

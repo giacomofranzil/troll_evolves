@@ -4,8 +4,8 @@ TRoll units in the dump: thicknesses and widths mm, lengths and positions m,
 temperatures °C, slab weight t, input speeds m/min, predicted speeds m/s,
 SpeedHead/SpeedTail/roll surface rpm (ignored), SpeedUpAccel m/min/s.
 Cooling banks are omitted in P1. Coilers are omitted: add them in Excel after
-import. Coilbox coiling speed defaults to the last rougher exit, uncoiling to
-F1 entry.
+import. The dump is mapped onto a workbook; it is not simulated. Coilbox
+coiling speed defaults to the last rougher exit, uncoiling to F1 entry.
 """
 
 from __future__ import annotations
@@ -56,6 +56,19 @@ def case_from_troll(path: str | Path, source_name: str | None = None) -> Case:
             f"unrecognised TRoll root {root.tag!r}, expected ProcessData"
         )
     return _case_from_root(root, source_name or xml_path.name)
+
+
+def write_troll_case(
+    path: str | Path,
+    dest: str | Path,
+    source_name: str | None = None,
+) -> Case:
+    """Map a TRoll dump onto a Case and write it as an input workbook."""
+    from ..excel import write_case
+
+    case = case_from_troll(path, source_name=source_name)
+    write_case(case, dest)
+    return case
 
 
 def _leaf(parent: ET.Element | None, tag: str, default: str | None = None) -> str | None:
@@ -210,7 +223,7 @@ def _case_from_root(root: ET.Element, source_name: str) -> Case:
             "schema_version": "1",
             "mill_type": MILL_HSM,
             "mill_name": plant_name,
-            "notes": f"Imported from {source_name}",
+            "notes": "\n".join(remarks),
         },
         warnings=tuple(remarks),
     )

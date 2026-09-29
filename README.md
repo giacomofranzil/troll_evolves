@@ -66,10 +66,11 @@ hsmpace template example.xlsx --with-example # example already filled in
 hsmpace run input.xlsx --scan --monte-carlo 2000 --excel results.xlsx
 hsmpace to-json input.xlsx -o case.json      # contract for the Level 2 system
 hsmpace run case.json --json report.json
-hsmpace run dump.xml --excel results.xlsx    # TRoll ProcessData XML → Case
+hsmpace import dump.xml case.xlsx            # TRoll ProcessData XML → workbook
+hsmpace run case.xlsx                        # simulate the edited workbook
 ```
 
-A TRoll dump is mapped onto the same case (predicted head exit speed in m/s, predicted thickness and width). SpeedHead/Tail and roll rpm are ignored. Cooling banks are omitted. Coilers are not in TRoll: add `coiler` rows with `x_m` after import. If a coilbox is present, coiling speed defaults to the last rougher exit and uncoiling to F1 entry. Products are a catalogue; set `piece_products` on the Simulation sheet.
+A TRoll dump is mapped onto a workbook, not simulated (`hsmpace import`, or upload `.xml` in the app and download the `.xlsx`). Predicted head exit speed in m/s and predicted thickness/width become the pass schedule. SpeedHead/Tail and roll rpm are ignored. Cooling banks are omitted. Coilers are not in TRoll: add `coiler` rows with `x_m` in the workbook. If a coilbox is present, coiling speed defaults to the last rougher exit and uncoiling to F1 entry. Products are a catalogue; set `piece_products` on the Simulation sheet. Then load the `.xlsx` to simulate.
 
 `hsmpace run` returns 2 when the minimum gap drops below the threshold, so it can be used in checking
 scripts.
