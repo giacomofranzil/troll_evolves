@@ -58,6 +58,10 @@ zoom trigger), and **Material points** draws 2, 3, 5, … or 21 traces along the
 If Python cannot be installed on the machine, the package can be bundled into a single executable with
 PyInstaller and the behaviour stays identical.
 
+Without installing Python: on GitHub open **Actions → Windows app → Run workflow**, then download the
+`hsmpace-windows` artifact from that run. Unzip it and double-click `hsmpace.exe`. That is `hsmpace app`
+at http://127.0.0.1:8731. The executable is not committed.
+
 ### Command line
 
 ```bash
