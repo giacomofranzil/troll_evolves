@@ -12,16 +12,29 @@ once they are hidden-imported. The app source is data, not just bytecode:
 Streamlit's script runner opens the .py file.
 """
 
+import os
+
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
+# Relative script and data paths are joined with the spec directory
+# (packaging/), not the process cwd. The Windows run failed with
+# "script '...\packaging\packaging\hsmpace_windows.py' not found".
+# SPECPATH is the absolute directory of this file, injected by PyInstaller.
+ROOT = os.path.normpath(os.path.join(SPECPATH, os.pardir))
+
+
+def _root(*parts: str) -> str:
+    return os.path.join(ROOT, *parts)
+
+
 datas = [
-    ("src/hsmpace/app/streamlit_app.py", "hsmpace/app"),
+    (_root("src", "hsmpace", "app", "streamlit_app.py"), "hsmpace/app"),
     # Theme. Port, address, and headless are also flags in cli._streamlit_argv.
     # contents_directory="." puts this next to hsmpace.exe, which is the
     # working directory of a double-click. The second copy is the script-level
     # config Streamlit reads beside streamlit_app.py.
-    (".streamlit/config.toml", ".streamlit"),
-    (".streamlit/config.toml", "hsmpace/app/.streamlit"),
+    (_root(".streamlit", "config.toml"), ".streamlit"),
+    (_root(".streamlit", "config.toml"), "hsmpace/app/.streamlit"),
 ]
 binaries = []
 hiddenimports = [
@@ -47,12 +60,12 @@ for package in ("plotly", "openpyxl"):
 
 
 a = Analysis(
-    ["packaging/hsmpace_windows.py"],
-    pathex=["src"],
+    [os.path.join(SPECPATH, "hsmpace_windows.py")],
+    pathex=[_root("src")],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    hookspath=["packaging/hooks"],
+    hookspath=[os.path.join(SPECPATH, "hooks")],
     hooksconfig={},
     runtime_hooks=[],
     excludes=["pytest", "tkinter"],
