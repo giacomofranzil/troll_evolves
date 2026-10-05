@@ -1,0 +1,38 @@
+# Manual Windows build of the Streamlit app. Not on push: PyInstaller collect
+# of Streamlit, pyarrow, and pandas is large. Download the hsmpace-windows
+# artifact from the run. The exe is not committed.
+
+name: Windows app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build hsmpace.exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install hsmpace and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[dev]"
+          python -m pip install "pyinstaller>=6.11"
+
+      - name: Freeze the Streamlit app
+        run: python -m PyInstaller packaging/hsmpace.spec --noconfirm --clean
+
+      - name: Upload hsmpace-windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: hsmpace-windows
+          path: dist/hsmpace
+          if-no-files-found: error

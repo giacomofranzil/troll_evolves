@@ -137,23 +137,49 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_app(args: argparse.Namespace) -> int:
-    from streamlit.web import cli as stcli
+def _streamlit_script() -> Path:
+    """Path Streamlit reads from disk.
 
-    script = Path(__file__).parent / "app" / "streamlit_app.py"
-    sys.argv = [
+    The script runner opens this file. A frozen bundle keeps bytecode in the
+    archive, so the spec also ships the source at ``hsmpace/app/streamlit_app.py``
+    under ``sys._MEIPASS``.
+    """
+    source = Path(__file__).resolve().parent / "app" / "streamlit_app.py"
+    if source.is_file():
+        return source
+    if getattr(sys, "frozen", False):
+        root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+        bundled = root / "hsmpace" / "app" / "streamlit_app.py"
+        if bundled.is_file():
+            return bundled
+    return source
+
+
+def _streamlit_argv(port: int, address: str) -> list[str]:
+    """Argument vector of ``hsmpace app`` (defaults: 127.0.0.1:8731)."""
+    argv = [
         "streamlit",
         "run",
-        str(script),
+        str(_streamlit_script()),
         "--server.port",
-        str(args.port),
+        str(port),
         "--server.address",
-        args.address,
+        address,
         "--server.headless",
         "true",
         "--browser.gatherUsageStats",
         "false",
     ]
+    # The frozen tree is not a checkout to edit. Do not point the reloader at it.
+    if getattr(sys, "frozen", False):
+        argv.extend(["--server.fileWatcherType", "none"])
+    return argv
+
+
+def _cmd_app(args: argparse.Namespace) -> int:
+    from streamlit.web import cli as stcli
+
+    sys.argv = _streamlit_argv(args.port, args.address)
     return int(stcli.main() or 0)
 
 
