@@ -328,8 +328,10 @@ acceleration of its stand.
   `rate * duration / 3600`); power rate is kW (integral in kWh). `rolling` is
   valid on stands only. This is not part of the event loop.
 * **intermediate material points**: not part of the event loop. After the run, `n` traces
-  (`n ∈ {2, 3, 5, …, 21}`, default 2) are reconstructed as geometric fractions of the current
-  length between tail and head.
+  (`n ∈ {2, 3, 5, …, 21}`, default 2) are reconstructed with exact piecewise kinematics as
+  geometric fractions between the tail and unconstrained virtual head. Each point is then
+  clamped independently when it reaches the assigned coiler, so it retains strip speed up to
+  the mandrel.
 
 ## 6. Mass flow balance in the tandem
 

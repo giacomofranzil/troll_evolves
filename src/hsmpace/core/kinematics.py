@@ -471,12 +471,53 @@ def interpolated_polyline(
     engaged it remains a geometric fraction of the visible length, not a
     reconstruction of gauge changes along the mill.
     """
+    return interpolated_trajectory(head, tail, fraction).polyline(curve_points)
+
+
+def interpolated_trajectory(
+    head: Trajectory,
+    tail: Trajectory,
+    fraction: float,
+) -> Trajectory:
+    """Exact piecewise trajectory at a geometric fraction of a piece.
+
+    Segment boundaries from both extremities are retained, so the interpolated
+    position, velocity and acceleration are analytic on every returned segment.
+    """
     fraction = min(max(fraction, 0.0), 1.0)
-    if fraction <= 1e-15:
-        return tail.polyline(curve_points)
-    if fraction >= 1.0 - 1e-15:
-        return head.polyline(curve_points)
-    times = sorted(set(head.polyline(curve_points)[0] + tail.polyline(curve_points)[0]))
-    xs = [(1.0 - fraction) * tail.x_at(t) + fraction * head.x_at(t) for t in times]
-    return times, xs
+    if not head or not tail:
+        return Trajectory()
+
+    t_lo = max(head.t_start, tail.t_start)
+    t_hi = min(head.t_end, tail.t_end)
+    if t_hi <= t_lo + EPS_T:
+        return Trajectory()
+
+    bounds = {t_lo, t_hi}
+    for trajectory in (head, tail):
+        for segment in trajectory.segments:
+            for t in (segment.t0, segment.t1):
+                if t_lo < t < t_hi:
+                    bounds.add(t)
+
+    segments: list[Segment] = []
+    knots = sorted(bounds)
+    for lo, hi in zip(knots[:-1], knots[1:]):
+        if hi <= lo + EPS_T:
+            continue
+        mid = 0.5 * (lo + hi)
+        head_segment = head._find(mid)
+        tail_segment = tail._find(mid)
+        segments.append(
+            Segment(
+                lo,
+                hi,
+                (1.0 - fraction) * tail_segment.x_at(lo)
+                + fraction * head_segment.x_at(lo),
+                (1.0 - fraction) * tail_segment.v_at(lo)
+                + fraction * head_segment.v_at(lo),
+                (1.0 - fraction) * tail_segment.a + fraction * head_segment.a,
+            )
+        )
+    return Trajectory(segments)
 

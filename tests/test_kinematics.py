@@ -11,6 +11,7 @@ from hsmpace.core.kinematics import (
     Segment,
     Trajectory,
     interpolated_polyline,
+    interpolated_trajectory,
     overlap_intervals,
     solve_crossing,
     subtract,
@@ -122,6 +123,19 @@ def test_interpolated_polyline_is_the_geometric_fraction():
     t, x = interpolated_polyline(head, tail, 0.25)
     assert x[0] == pytest.approx(5.0)
     assert x[-1] == pytest.approx(0.25 * head.x_at(10.0) + 0.75 * tail.x_at(10.0))
+
+
+def test_material_point_keeps_strip_speed_until_it_reaches_the_coiler():
+    head_virtual = Trajectory([Segment(0.0, 15.0, 100.0, 10.0, 0.0)])
+    tail = Trajectory([Segment(0.0, 15.0, 0.0, 10.0, 0.0)])
+
+    point = interpolated_trajectory(head_virtual, tail, 0.5).clamp_max(120.0)
+
+    assert point.x_at(5.0) == pytest.approx(100.0)
+    assert point.v_at(5.0) == pytest.approx(10.0)
+    assert point.x_at(7.0) == pytest.approx(120.0)
+    assert point.x_at(10.0) == pytest.approx(120.0)
+    assert point.v_at(10.0) == pytest.approx(0.0)
 
 
 def test_clamp_max_window_only_caps_inside_the_window():
