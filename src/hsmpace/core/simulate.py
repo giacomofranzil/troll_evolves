@@ -73,6 +73,22 @@ class SimEvent:
     detail: str = ""
 
 
+@dataclass(frozen=True)
+class CoilboxMaterialKinematics:
+    """Virtual boundaries used to reconstruct material points through a coilbox."""
+
+    x: float
+    inbound_head: Trajectory
+    outbound_tail: Trajectory
+
+    def shift(self, dt: float) -> "CoilboxMaterialKinematics":
+        return CoilboxMaterialKinematics(
+            self.x,
+            self.inbound_head.shift(dt),
+            self.outbound_tail.shift(dt),
+        )
+
+
 @dataclass
 class PieceResult:
     """Outcome of the simulation of a single piece.
@@ -95,6 +111,7 @@ class PieceResult:
     length_geometric: float = 0.0
     x_coiler: float | None = None
     coiler_id: str = ""
+    coilbox_material: CoilboxMaterialKinematics | None = None
     warnings: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -179,6 +196,8 @@ def simulate_piece(
 
     head = Trajectory()
     tail = Trajectory()
+    cb_head_virtual = Trajectory()
+    cb_tail_virtual = Trajectory()
     events: list[SimEvent] = []
     occupancy: list[Occupancy] = []
     warnings: list[str] = []
@@ -657,12 +676,22 @@ def simulate_piece(
             if cb_arrived and not cb_inverted and x_cb is not None:
                 head.append(Segment(t, t_next, x_cb, 0.0, 0.0))
                 tail.append(Segment(t, t_next, x_tail, v_t, a_t))
+                cb_head_virtual.append(Segment(t, t_next, x_virt, v_h, a_h))
                 x_virt = x_virt + v_h * dt + 0.5 * a_h * dt * dt
                 x_tail = x_tail + v_t * dt + 0.5 * a_t * dt * dt
                 x_head = x_cb
             elif cb_tail_pinned and x_cb is not None:
                 head.append(Segment(t, t_next, x_head, v_h, a_h))
                 tail.append(Segment(t, t_next, x_cb, 0.0, 0.0))
+                cb_tail_virtual.append(
+                    Segment(
+                        t,
+                        t_next,
+                        x_cb + L_paid - L_stored,
+                        v_lead / lam,
+                        a_lead / lam,
+                    )
+                )
                 x_head = x_head + v_h * dt + 0.5 * a_h * dt * dt
                 x_tail = x_cb
                 L_paid += (v_lead / lam) * dt + 0.5 * (a_lead / lam) * dt * dt
@@ -984,6 +1013,11 @@ def simulate_piece(
         length_geometric=length_geo,
         x_coiler=x_coiler,
         coiler_id=coiler_id,
+        coilbox_material=(
+            CoilboxMaterialKinematics(x_cb, cb_head_virtual, cb_tail_virtual)
+            if x_cb is not None and cb_head_virtual and cb_tail_virtual
+            else None
+        ),
         warnings=tuple(dict.fromkeys(warnings)),
     )
 
@@ -1088,5 +1122,10 @@ def shift_result(result: PieceResult, dt: float, piece_id: str | None = None) ->
         length_geometric=result.length_geometric,
         x_coiler=result.x_coiler,
         coiler_id=result.coiler_id,
+        coilbox_material=(
+            result.coilbox_material.shift(dt)
+            if result.coilbox_material is not None
+            else None
+        ),
         warnings=result.warnings,
     )

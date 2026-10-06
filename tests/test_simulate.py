@@ -727,12 +727,19 @@ def test_coilbox_inverts_and_pays_out():
     assert kinds.count("bite") == 2
     assert check_extremities(res) == []
     arrived = next(e for e in res.events if e.kind == "coilbox_in")
+    full = next(e for e in res.events if e.kind == "coilbox_full")
+    uncoil = next(e for e in res.events if e.kind == "coilbox_uncoil")
     empty = next(e for e in res.events if e.kind == "coilbox_empty")
-    mid = 0.5 * (arrived.t + next(e.t for e in res.events if e.kind == "coilbox_full"))
+    mid = 0.5 * (arrived.t + full.t)
     assert res.head.x_at(mid) == pytest.approx(100.0, abs=1e-6)
     assert res.tail.x_at(mid) < 100.0 - 0.5
     after = empty.t + 0.2
     assert res.head.x_at(after) > res.tail.x_at(after) + 0.1
+    assert res.coilbox_material is not None
+    assert res.coilbox_material.inbound_head.t_start == pytest.approx(arrived.t)
+    assert res.coilbox_material.inbound_head.t_end == pytest.approx(full.t)
+    assert res.coilbox_material.outbound_tail.t_start == pytest.approx(uncoil.t)
+    assert res.coilbox_material.outbound_tail.t_end == pytest.approx(empty.t)
     assert abs(res.length_error) < 0.5
     assert not any("overlap" in w for w in res.warnings)
 
