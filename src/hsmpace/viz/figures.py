@@ -11,7 +11,7 @@ from __future__ import annotations
 import plotly.graph_objects as go
 
 from ..core.analysis import GapAnalysis
-from ..core.kinematics import interpolated_polyline
+from ..core.kinematics import interpolated_trajectory
 from ..core.model import KIND_COILER, KIND_COILBOX, KIND_STAND, UTILITY_WATER, Case
 from ..core.simulate import PieceResult
 from ..core.studies import MonteCarloResult, PacingPoint
@@ -114,7 +114,10 @@ def space_time_figure(
             inner = n_points - 2
             for k in range(1, inner + 1):
                 frac = k / (n_points - 1)
-                t_m, x_m = interpolated_polyline(res.head, res.tail, frac)
+                material_point = interpolated_trajectory(res.head_virtual, res.tail, frac)
+                if res.x_coiler is not None:
+                    material_point = material_point.clamp_max(res.x_coiler)
+                t_m, x_m = material_point.polyline()
                 fig.add_trace(
                     go.Scatter(
                         x=x_m,

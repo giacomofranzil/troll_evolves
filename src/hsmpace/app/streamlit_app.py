@@ -321,10 +321,11 @@ def main() -> None:
         )
         st.caption(
             "Every piece is the band between head and tail. Extra material points, when "
-            "asked for, are a geometric fraction of that length, drawn after the run; "
-            "they do not enter the event loop. The band widens where the piece is being "
-            "rolled and narrows once the head is gripped by the coiler. Use the camera "
-            "icon to export the picture: the PNG comes out at triple resolution."
+            "asked for, are reconstructed between the tail and virtual head, then pinned "
+            "individually as they reach the assigned coiler. They are drawn after the run "
+            "and do not enter the event loop. The band widens where the piece is being rolled "
+            "and narrows once the head is gripped by the coiler. Use the camera icon to export "
+            "the picture: the PNG comes out at triple resolution."
         )
 
     with tabs[1]:
