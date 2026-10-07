@@ -10,6 +10,7 @@ from hsmpace.core.kinematics import (
     QuadPiece,
     Segment,
     Trajectory,
+    coilbox_material_trajectory,
     interpolated_polyline,
     interpolated_trajectory,
     overlap_intervals,
@@ -136,6 +137,46 @@ def test_material_point_keeps_strip_speed_until_it_reaches_the_coiler():
     assert point.x_at(7.0) == pytest.approx(120.0)
     assert point.x_at(10.0) == pytest.approx(120.0)
     assert point.v_at(10.0) == pytest.approx(0.0)
+
+
+def _coilbox_material_point() -> Trajectory:
+    head = Trajectory(
+        [
+            Segment(0.0, 2.0, 80.0, 10.0),
+            Segment(2.0, 14.0, 100.0, 0.0),
+            Segment(14.0, 30.0, 100.0, 10.0),
+        ]
+    )
+    tail = Trajectory(
+        [
+            Segment(0.0, 12.0, -20.0, 10.0),
+            Segment(12.0, 24.0, 100.0, 0.0),
+            Segment(24.0, 30.0, 100.0, 10.0),
+        ]
+    )
+    inbound_head = Trajectory([Segment(2.0, 12.0, 100.0, 10.0)])
+    outbound_tail = Trajectory([Segment(14.0, 24.0, 0.0, 10.0)])
+    return coilbox_material_trajectory(
+        head, tail, inbound_head, outbound_tail, 100.0, 0.5
+    )
+
+
+def test_material_point_keeps_strip_speed_until_absorbed_by_the_coilbox():
+    point = _coilbox_material_point()
+
+    assert point.x_at(6.0) == pytest.approx(90.0)
+    assert point.v_at(6.0) == pytest.approx(10.0)
+    assert point.x_at(8.0) == pytest.approx(100.0)
+    assert point.v_at(8.0) == pytest.approx(0.0)
+
+
+def test_material_point_stays_pinned_then_leaves_the_coilbox_at_strip_speed():
+    point = _coilbox_material_point()
+
+    assert point.x_at(16.0) == pytest.approx(100.0)
+    assert point.v_at(16.0) == pytest.approx(0.0)
+    assert point.x_at(20.0) == pytest.approx(110.0)
+    assert point.v_at(20.0) == pytest.approx(10.0)
 
 
 def test_clamp_max_window_only_caps_inside_the_window():

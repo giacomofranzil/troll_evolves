@@ -329,9 +329,10 @@ acceleration of its stand.
   valid on stands only. This is not part of the event loop.
 * **intermediate material points**: not part of the event loop. After the run, `n` traces
   (`n ∈ {2, 3, 5, …, 21}`, default 2) are reconstructed with exact piecewise kinematics as
-  geometric fractions between the tail and unconstrained virtual head. Each point is then
-  clamped independently when it reaches the assigned coiler, so it retains strip speed up to
-  the mandrel.
+  geometric fractions between virtual boundaries. At the coilbox an inbound virtual head lets
+  every point keep strip speed until it is absorbed; after LIFO inversion, an outbound virtual
+  tail keeps it pinned until emission and then restores strip speed. Each point is finally
+  clamped independently when it reaches the assigned coiler.
 
 ## 6. Mass flow balance in the tandem
 

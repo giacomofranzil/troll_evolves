@@ -7,7 +7,7 @@ import pytest
 from hsmpace.core.analysis import analyse_sequence
 from hsmpace.core.kinematics import Segment, Trajectory
 from hsmpace.core.model import harmonise_tandem_speeds
-from hsmpace.core.simulate import PieceResult
+from hsmpace.core.simulate import CoilboxMaterialKinematics, PieceResult
 from hsmpace.core.studies import base_results, sequence
 from hsmpace.example import example_case
 from hsmpace.core.utilities import UtilityReport, analyse_utilities
@@ -82,6 +82,46 @@ def test_material_points_in_a_15_point_figure_reach_the_coiler_at_strip_speed():
     )
     assert first_coiler_time == pytest.approx(7.0)
     assert max(midpoint.x) <= 120.0
+
+
+def test_material_points_in_a_15_point_figure_cross_the_coilbox_at_strip_speed():
+    case, _ = harmonise_tandem_speeds(example_case())
+    head = Trajectory(
+        [
+            Segment(0.0, 2.0, 80.0, 10.0),
+            Segment(2.0, 14.0, 100.0, 0.0),
+            Segment(14.0, 30.0, 100.0, 10.0),
+        ]
+    )
+    tail = Trajectory(
+        [
+            Segment(0.0, 12.0, -20.0, 10.0),
+            Segment(12.0, 24.0, 100.0, 0.0),
+            Segment(24.0, 30.0, 100.0, 10.0),
+        ]
+    )
+    result = PieceResult(
+        piece_id="P1",
+        product_id="P",
+        t_release=0.0,
+        head=head,
+        tail=tail,
+        head_virtual=head,
+        coilbox_material=CoilboxMaterialKinematics(
+            x=100.0,
+            inbound_head=Trajectory([Segment(2.0, 12.0, 100.0, 10.0)]),
+            outbound_tail=Trajectory([Segment(14.0, 24.0, 0.0, 10.0)]),
+        ),
+    )
+
+    fig = space_time_figure(case, [result], n_points=15)
+
+    midpoint = next(trace for trace in fig.data if trace.name == "P1 7/14")
+    vertices = {float(t): float(x) for t, x in zip(midpoint.y, midpoint.x)}
+    assert vertices[2.0] == pytest.approx(50.0)
+    assert vertices[7.0] == pytest.approx(100.0)
+    assert vertices[19.0] == pytest.approx(100.0)
+    assert vertices[24.0] == pytest.approx(150.0)
 
 
 def test_utility_rate_figure_plots_the_step_series():

@@ -190,6 +190,33 @@ class Trajectory:
             clamped = True
         return Trajectory(out)
 
+    def clamp_min(self, x_min: float) -> "Trajectory":
+        """Pin at ``x_min`` until a forward-moving trajectory reaches it."""
+        out: list[Segment] = []
+        released = False
+        for s in self.segments:
+            if released:
+                out.append(s)
+                continue
+            if s.x0 >= x_min - EPS_X:
+                released = True
+                out.append(s)
+                continue
+            t_hit = solve_crossing(
+                s.t0, s.x0, s.v0, s.a, x_min, s.t0, s.t1, direction=1
+            )
+            if t_hit is None:
+                out.append(Segment(s.t0, s.t1, x_min, 0.0, 0.0))
+                continue
+            if t_hit > s.t0 + EPS_T:
+                out.append(Segment(s.t0, t_hit, x_min, 0.0, 0.0))
+            if t_hit < s.t1 - EPS_T:
+                out.append(
+                    Segment(t_hit, s.t1, s.x_at(t_hit), s.v_at(t_hit), s.a)
+                )
+            released = True
+        return Trajectory(out)
+
     def clamp_max_window(self, x_max: float, t_lo: float, t_hi: float) -> "Trajectory":
         """``min(x, x_max)`` only on ``[t_lo, t_hi]``; the rest is unchanged.
 
@@ -226,6 +253,19 @@ class Trajectory:
                     out.append(Segment(a, t_hit, x0, v0, s.a))
                 if t_hit < b - EPS_T:
                     out.append(Segment(t_hit, b, x_max, 0.0, 0.0))
+        return Trajectory(out)
+
+    def window(self, t_start: float, t_end: float) -> "Trajectory":
+        """Exact subsection of the trajectory on ``[t_start, t_end]``."""
+        out: list[Segment] = []
+        if t_end <= t_start + EPS_T:
+            return Trajectory()
+        for s in self.segments:
+            lo = max(s.t0, t_start)
+            hi = min(s.t1, t_end)
+            if hi <= lo + EPS_T:
+                continue
+            out.append(Segment(lo, hi, s.x_at(lo), s.v_at(lo), s.a))
         return Trajectory(out)
 
     def truncate(self, t_end: float) -> "Trajectory":
@@ -519,5 +559,50 @@ def interpolated_trajectory(
                 (1.0 - fraction) * tail_segment.a + fraction * head_segment.a,
             )
         )
+    return Trajectory(segments)
+
+
+def coilbox_material_trajectory(
+    head: Trajectory,
+    tail: Trajectory,
+    inbound_head: Trajectory,
+    outbound_tail: Trajectory,
+    x_coilbox: float,
+    fraction: float,
+) -> Trajectory:
+    """Material-point trace through LIFO coilbox absorption and emission.
+
+    The inbound virtual head lets each point reach the coilbox at strip speed
+    before it is pinned. After inversion, fractions reverse and the outbound
+    virtual tail lets each point remain pinned until it is emitted.
+    """
+    if not inbound_head or not outbound_tail:
+        return interpolated_trajectory(head, tail, fraction)
+
+    t_in = inbound_head.t_start
+    t_full = inbound_head.t_end
+    t_uncoil = outbound_tail.t_start
+    t_empty = outbound_tail.t_end
+    segments: list[Segment] = []
+
+    before = interpolated_trajectory(head, tail, fraction).window(head.t_start, t_in)
+    segments.extend(before.segments)
+
+    inbound = interpolated_trajectory(inbound_head, tail, fraction).clamp_max(x_coilbox)
+    segments.extend(inbound.window(t_in, t_full).segments)
+
+    if t_uncoil > t_full + EPS_T:
+        segments.append(Segment(t_full, t_uncoil, x_coilbox, 0.0, 0.0))
+
+    reversed_fraction = 1.0 - min(max(fraction, 0.0), 1.0)
+    outbound = interpolated_trajectory(head, outbound_tail, reversed_fraction).clamp_min(
+        x_coilbox
+    )
+    segments.extend(outbound.window(t_uncoil, t_empty).segments)
+
+    after = interpolated_trajectory(head, tail, reversed_fraction).window(
+        t_empty, head.t_end
+    )
+    segments.extend(after.segments)
     return Trajectory(segments)
 
