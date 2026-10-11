@@ -204,6 +204,35 @@ def test_material_coordinate_has_analytic_speed_jumps_at_each_stand():
     assert point.x_at(8.0) == pytest.approx(23.0)
 
 
+def test_material_coordinate_preserves_coilbox_payout_and_coiler_pinning():
+    head = Trajectory([Segment(0.0, 30.0, 80.0, 0.0)])
+    tail = Trajectory([Segment(0.0, 30.0, -20.0, 0.0)])
+    motions = (
+        MaterialMotion(0.0, 12.0, 1, 10.0, 0.0),
+        MaterialMotion(14.0, 30.0, 1, 10.0, 0.0),
+    )
+    outbound_tail = Trajectory([Segment(14.0, 24.0, 0.0, 10.0)])
+
+    point = material_coordinate_trajectory(
+        head,
+        tail,
+        motions,
+        0.5,
+        x_coilbox=100.0,
+        outbound_tail=outbound_tail,
+        x_coiler=120.0,
+    )
+
+    assert point.x_at(6.0) == pytest.approx(90.0)
+    assert point.v_at(6.0) == pytest.approx(10.0)
+    assert point.x_at(8.0) == pytest.approx(100.0)
+    assert point.x_at(16.0) == pytest.approx(100.0)
+    assert point.x_at(20.0) == pytest.approx(110.0)
+    assert point.v_at(20.0) == pytest.approx(10.0)
+    assert point.x_at(22.0) == pytest.approx(120.0)
+    assert point.v_at(22.0) == pytest.approx(0.0)
+
+
 def test_clamp_max_window_only_caps_inside_the_window():
     traj = Trajectory([Segment(0.0, 10.0, 0.0, 10.0, 0.0)])
     capped = traj.clamp_max_window(40.0, 3.0, 6.0)
