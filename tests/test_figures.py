@@ -124,6 +124,26 @@ def test_material_points_in_a_15_point_figure_cross_the_coilbox_at_strip_speed()
     assert vertices[24.0] == pytest.approx(150.0)
 
 
+def test_material_point_figure_has_a_knot_at_every_finishing_stand():
+    case, _ = harmonise_tandem_speeds(example_case())
+    results = sequence(case, base_results(case), case.settings.pacing)
+
+    fig = space_time_figure(case, results, n_points=15)
+
+    first = results[0]
+    midpoint = next(
+        trace for trace in fig.data if trace.name == f"{first.piece_id} 7/14"
+    )
+    finishing_stands = [
+        case.line.get(rolling_pass.equipment_id).x
+        for rolling_pass in case.product(first.product_id).passes
+        if rolling_pass.equipment_id.startswith("F")
+    ]
+    assert len(finishing_stands) == 7
+    for x_stand in finishing_stands:
+        assert any(x == pytest.approx(x_stand) for x in midpoint.x)
+
+
 def test_utility_rate_figure_plots_the_step_series():
     case, _ = harmonise_tandem_speeds(example_case())
     results = sequence(case, base_results(case), case.settings.pacing)

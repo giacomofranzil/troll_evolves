@@ -328,11 +328,12 @@ acceleration of its stand.
   `rate * duration / 3600`); power rate is kW (integral in kWh). `rolling` is
   valid on stands only. This is not part of the event loop.
 * **intermediate material points**: not part of the event loop. After the run, `n` traces
-  (`n ∈ {2, 3, 5, …, 21}`, default 2) are reconstructed with exact piecewise kinematics as
-  geometric fractions between virtual boundaries. At the coilbox an inbound virtual head lets
-  every point keep strip speed until it is absorbed; after LIFO inversion, an outbound virtual
-  tail keeps it pinned until emission and then restores strip speed. Each point is finally
-  clamped independently when it reaches the assigned coiler.
+  (`n ∈ {2, 3, 5, …, 21}`, default 2) are fixed material coordinates, equally spaced by
+  volume along the released slab. For every event-loop interval the local point speed is the
+  leading speed divided by the elongations of the engaged stands still ahead of that point;
+  crossing a stand therefore changes its speed instantaneously by that stand's `lambda`. At the
+  coilbox each coordinate stays on the axis from its arrival until its LIFO payout turn, and at
+  the assigned coiler it is pinned only when that coordinate reaches the mandrel.
 
 ## 6. Mass flow balance in the tandem
 

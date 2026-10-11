@@ -321,11 +321,12 @@ def main() -> None:
         )
         st.caption(
             "Every piece is the band between head and tail. Extra material points, when "
-            "asked for, retain strip speed as they enter and leave the coilbox, then pin "
-            "individually at the assigned coiler. They are drawn after the run and do not "
-            "enter the event loop. The band widens where the piece is being rolled and narrows "
-            "once the head is gripped by the coiler. Use the camera icon to export the picture: "
-            "the PNG comes out at triple resolution."
+            "asked for, are fixed coordinates along the strip: their slope changes at every "
+            "stand, they retain strip speed through the coilbox, and they pin individually at "
+            "the assigned coiler. They are drawn after the run and do not enter the event loop. "
+            "The band widens where the piece is being rolled and narrows once the head is gripped "
+            "by the coiler. Use the camera icon to export the picture: the PNG comes out at "
+            "triple resolution."
         )
 
     with tabs[1]:

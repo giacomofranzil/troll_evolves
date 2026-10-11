@@ -46,7 +46,14 @@ from .coiler import (
     reversal_tailout_speed,
     tail_arrival_speed,
 )
-from .kinematics import EPS_T, Segment, Trajectory, _quad_roots, solve_crossing
+from .kinematics import (
+    EPS_T,
+    MaterialMotion,
+    Segment,
+    Trajectory,
+    _quad_roots,
+    solve_crossing,
+)
 from .model import (
     FWD,
     Case,
@@ -112,6 +119,7 @@ class PieceResult:
     x_coiler: float | None = None
     coiler_id: str = ""
     coilbox_material: CoilboxMaterialKinematics | None = None
+    material_motion: tuple[MaterialMotion, ...] = ()
     warnings: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -198,6 +206,7 @@ def simulate_piece(
     tail = Trajectory()
     cb_head_virtual = Trajectory()
     cb_tail_virtual = Trajectory()
+    material_motion: list[MaterialMotion] = []
     events: list[SimEvent] = []
     occupancy: list[Occupancy] = []
     warnings: list[str] = []
@@ -673,6 +682,19 @@ def simulate_piece(
         dt = max(t_next - t, 0.0)
 
         if dt > EPS_T:
+            material_motion.append(
+                MaterialMotion(
+                    t,
+                    t_next,
+                    direction,
+                    v_lead,
+                    a_lead,
+                    tuple(
+                        (x_stand, rp.elongation)
+                        for rp, x_stand, _t_in in engaged
+                    ),
+                )
+            )
             if cb_arrived and not cb_inverted and x_cb is not None:
                 head.append(Segment(t, t_next, x_cb, 0.0, 0.0))
                 tail.append(Segment(t, t_next, x_tail, v_t, a_t))
@@ -1018,6 +1040,7 @@ def simulate_piece(
             if x_cb is not None and cb_head_virtual and cb_tail_virtual
             else None
         ),
+        material_motion=tuple(material_motion),
         warnings=tuple(dict.fromkeys(warnings)),
     )
 
@@ -1127,5 +1150,6 @@ def shift_result(result: PieceResult, dt: float, piece_id: str | None = None) ->
             if result.coilbox_material is not None
             else None
         ),
+        material_motion=tuple(motion.shift(dt) for motion in result.material_motion),
         warnings=result.warnings,
     )

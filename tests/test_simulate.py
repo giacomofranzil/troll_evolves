@@ -7,6 +7,7 @@ from dataclasses import replace
 
 import pytest
 
+from hsmpace.core.kinematics import material_coordinate_trajectory
 from hsmpace.core.model import (
     FWD,
     REV,
@@ -124,6 +125,41 @@ def test_mass_flow_chain_in_the_tandem():
     assert math.isclose(res.head.v_at(t) / res.tail.v_at(t), 4.0, rel_tol=1e-9)
     assert math.isclose(res.length_geometric, 40.0, abs_tol=1e-9)
     assert math.isclose(res.length_kinematic, 40.0, abs_tol=1e-6)
+
+
+def test_material_point_speed_jumps_by_each_tandem_elongation():
+    line = _line([("F1", 50.0), ("F2", 60.0)], coiler_x=300.0)
+    case = _case(
+        line,
+        [
+            _pass(1, "F1", FWD, 100.0, 50.0, 4.0),
+            _pass(2, "F2", FWD, 50.0, 25.0, 8.0),
+        ],
+    )
+    res = simulate_piece(case, case.products[0])
+    point = material_coordinate_trajectory(
+        res.head_virtual,
+        res.tail,
+        res.material_motion,
+        0.5,
+        x_coiler=res.x_coiler,
+    )
+
+    for x_stand, elongation in ((50.0, 2.0), (60.0, 2.0)):
+        crossing = point.crossing_times(x_stand, direction=FWD)[0]
+        before = next(
+            segment
+            for segment in point.segments
+            if segment.t1 == pytest.approx(crossing)
+            and segment.x1 == pytest.approx(x_stand)
+        )
+        after = next(
+            segment
+            for segment in point.segments
+            if segment.t0 == pytest.approx(crossing)
+            and segment.x0 == pytest.approx(x_stand)
+        )
+        assert after.v0 / before.v1 == pytest.approx(elongation)
 
 
 def test_the_reversal_honours_the_reversing_delay():

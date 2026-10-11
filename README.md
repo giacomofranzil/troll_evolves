@@ -53,7 +53,8 @@ The same application runs in two ways, and the choice can be deferred:
 * **on an office server**, with `hsmpace app --address 0.0.0.0`, with colleagues opening a URL.
 
 On the diagram, **Show the virtual head** keeps the unconstrained head after the coiler (the
-zoom trigger), and **Material points** draws 2, 3, 5, … or 21 traces along the current length.
+zoom trigger), and **Material points** draws 2, 3, 5, … or 21 fixed coordinates along the strip,
+with their speed changes through the stands, coilbox and coiler.
 
 If Python cannot be installed on the machine, the package can be bundled into a single executable with
 PyInstaller and the behaviour stays identical.
