@@ -50,6 +50,32 @@ class Segment:
         return self.t1 - self.t0
 
 
+@dataclass(frozen=True)
+class MaterialMotion:
+    """Velocity field of a piece over one event-loop interval.
+
+    ``lead_v0`` and ``lead_a`` are unsigned in the current direction. A point
+    upstream of an engaged stand moves more slowly by that stand's elongation.
+    """
+
+    t0: float
+    t1: float
+    direction: int
+    lead_v0: float
+    lead_a: float
+    stands: tuple[tuple[float, float], ...] = ()
+
+    def shift(self, dt: float) -> "MaterialMotion":
+        return MaterialMotion(
+            self.t0 + dt,
+            self.t1 + dt,
+            self.direction,
+            self.lead_v0,
+            self.lead_a,
+            self.stands,
+        )
+
+
 def solve_crossing(
     seg_t0: float,
     x0: float,
@@ -560,6 +586,148 @@ def interpolated_trajectory(
             )
         )
     return Trajectory(segments)
+
+
+def _advance_material_point(
+    motions: tuple[MaterialMotion, ...],
+    t_start: float,
+    t_end: float,
+    x_start: float,
+    stop_x: float | None = None,
+) -> Trajectory:
+    """Integrate one material point through recorded rolling velocity fields."""
+    segments: list[Segment] = []
+    t = t_start
+    x = x_start
+
+    for motion in motions:
+        if motion.t1 <= t + EPS_T or motion.t0 >= t_end - EPS_T:
+            continue
+        interval_start = max(t, motion.t0)
+        interval_end = min(t_end, motion.t1)
+        if interval_start > t + EPS_T:
+            segments.append(Segment(t, interval_start, x, 0.0, 0.0))
+        t = interval_start
+
+        while t < interval_end - EPS_T:
+            ahead = [
+                (motion.direction * (x_stand - x), x_stand, elongation)
+                for x_stand, elongation in motion.stands
+                if motion.direction * (x_stand - x) > EPS_X
+            ]
+            ahead.sort(key=lambda item: item[0])
+
+            divisor = 1.0
+            for _gap, _x_stand, elongation in ahead:
+                divisor *= elongation
+            lead_speed = max(
+                motion.lead_v0 + motion.lead_a * (t - motion.t0),
+                0.0,
+            )
+            v = motion.direction * lead_speed / divisor
+            a = motion.direction * motion.lead_a / divisor
+
+            events: list[tuple[float, str, float]] = []
+            if ahead:
+                x_stand = ahead[0][1]
+                t_hit = solve_crossing(
+                    t,
+                    x,
+                    v,
+                    a,
+                    x_stand,
+                    t,
+                    interval_end,
+                    direction=motion.direction,
+                )
+                if t_hit is not None:
+                    events.append((t_hit, "stand", x_stand))
+            if (
+                stop_x is not None
+                and motion.direction > 0
+                and stop_x > x + EPS_X
+            ):
+                t_stop = solve_crossing(
+                    t, x, v, a, stop_x, t, interval_end, direction=1
+                )
+                if t_stop is not None:
+                    events.append((t_stop, "stop", stop_x))
+
+            if not events:
+                segments.append(Segment(t, interval_end, x, v, a))
+                x = segments[-1].x1
+                t = interval_end
+                continue
+
+            t_event, kind, x_event = min(events, key=lambda item: item[0])
+            if t_event > t + EPS_T:
+                segments.append(Segment(t, t_event, x, v, a))
+            x = x_event
+            t = t_event
+            if kind == "stop":
+                if t_end > t + EPS_T:
+                    segments.append(Segment(t, t_end, x, 0.0, 0.0))
+                return Trajectory(segments)
+
+        t = interval_end
+
+    if t_end > t + EPS_T:
+        segments.append(Segment(t, t_end, x, 0.0, 0.0))
+    return Trajectory(segments)
+
+
+def material_coordinate_trajectory(
+    head: Trajectory,
+    tail: Trajectory,
+    motions: tuple[MaterialMotion, ...],
+    fraction: float,
+    *,
+    x_coiler: float | None = None,
+    x_coilbox: float | None = None,
+    outbound_tail: Trajectory | None = None,
+) -> Trajectory:
+    """Exact trajectory of a fixed material coordinate from tail (0) to head (1).
+
+    Rolling velocity fields supply the local speed on each side of every
+    engaged stand. Coilbox payout releases the original tail first (LIFO), and
+    the coiler pins each coordinate only when that coordinate reaches it.
+    """
+    fraction = min(max(fraction, 0.0), 1.0)
+    t_start = max(head.t_start, tail.t_start)
+    t_end = min(head.t_end, tail.t_end)
+    x_start = (1.0 - fraction) * tail.x_at(t_start) + fraction * head.x_at(t_start)
+
+    if x_coilbox is None or outbound_tail is None or not outbound_tail:
+        return _advance_material_point(
+            motions, t_start, t_end, x_start, stop_x=x_coiler
+        )
+
+    payout_start = outbound_tail.t_start
+    payout_end = outbound_tail.t_end
+    payout_x0 = outbound_tail.x_at(payout_start)
+    release_target = payout_x0 + fraction * (x_coilbox - payout_x0)
+    releases = outbound_tail.crossing_times(release_target, direction=1)
+    release_time = (
+        releases[0]
+        if releases
+        else payout_start + fraction * (payout_end - payout_start)
+    )
+
+    inbound = _advance_material_point(
+        motions,
+        t_start,
+        release_time,
+        x_start,
+        stop_x=x_coilbox,
+    )
+    outbound = _advance_material_point(
+        motions,
+        release_time,
+        t_end,
+        x_coilbox,
+        stop_x=x_coiler,
+    )
+    return Trajectory(inbound.segments + outbound.segments)
 
 
 def coilbox_material_trajectory(

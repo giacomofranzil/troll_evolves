@@ -11,7 +11,11 @@ from __future__ import annotations
 import plotly.graph_objects as go
 
 from ..core.analysis import GapAnalysis
-from ..core.kinematics import coilbox_material_trajectory, interpolated_trajectory
+from ..core.kinematics import (
+    coilbox_material_trajectory,
+    interpolated_trajectory,
+    material_coordinate_trajectory,
+)
 from ..core.model import KIND_COILER, KIND_COILBOX, KIND_STAND, UTILITY_WATER, Case
 from ..core.simulate import PieceResult
 from ..core.studies import MonteCarloResult, PacingPoint
@@ -114,7 +118,18 @@ def space_time_figure(
             inner = n_points - 2
             for k in range(1, inner + 1):
                 frac = k / (n_points - 1)
-                if res.coilbox_material is not None:
+                if res.material_motion:
+                    cb = res.coilbox_material
+                    material_point = material_coordinate_trajectory(
+                        res.head_virtual,
+                        res.tail,
+                        res.material_motion,
+                        frac,
+                        x_coiler=res.x_coiler,
+                        x_coilbox=cb.x if cb is not None else None,
+                        outbound_tail=cb.outbound_tail if cb is not None else None,
+                    )
+                elif res.coilbox_material is not None:
                     cb = res.coilbox_material
                     material_point = coilbox_material_trajectory(
                         res.head_virtual,
@@ -128,7 +143,7 @@ def space_time_figure(
                     material_point = interpolated_trajectory(
                         res.head_virtual, res.tail, frac
                     )
-                if res.x_coiler is not None:
+                if not res.material_motion and res.x_coiler is not None:
                     material_point = material_point.clamp_max(res.x_coiler)
                 t_m, x_m = material_point.polyline()
                 fig.add_trace(

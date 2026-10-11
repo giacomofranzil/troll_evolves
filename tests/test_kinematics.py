@@ -7,12 +7,14 @@ import math
 import pytest
 
 from hsmpace.core.kinematics import (
+    MaterialMotion,
     QuadPiece,
     Segment,
     Trajectory,
     coilbox_material_trajectory,
     interpolated_polyline,
     interpolated_trajectory,
+    material_coordinate_trajectory,
     overlap_intervals,
     solve_crossing,
     subtract,
@@ -177,6 +179,29 @@ def test_material_point_stays_pinned_then_leaves_the_coilbox_at_strip_speed():
     assert point.v_at(16.0) == pytest.approx(0.0)
     assert point.x_at(20.0) == pytest.approx(110.0)
     assert point.v_at(20.0) == pytest.approx(10.0)
+
+
+def test_material_coordinate_has_analytic_speed_jumps_at_each_stand():
+    head = Trajectory([Segment(0.0, 10.0, 10.0, 0.0)])
+    tail = Trajectory([Segment(0.0, 10.0, -10.0, 0.0)])
+    motion = MaterialMotion(
+        0.0,
+        10.0,
+        direction=1,
+        lead_v0=6.0,
+        lead_a=0.0,
+        stands=((10.0, 2.0), (20.0, 1.5)),
+    )
+
+    point = material_coordinate_trajectory(head, tail, (motion,), 0.5)
+
+    assert point.crossing_times(10.0, direction=1) == pytest.approx([5.0])
+    assert point.crossing_times(20.0, direction=1) == pytest.approx([7.5])
+    assert point.v_at(4.0) == pytest.approx(2.0)
+    assert point.v_at(6.0) == pytest.approx(4.0)
+    assert point.v_at(8.0) == pytest.approx(6.0)
+    assert point.x_at(6.0) == pytest.approx(14.0)
+    assert point.x_at(8.0) == pytest.approx(23.0)
 
 
 def test_clamp_max_window_only_caps_inside_the_window():
