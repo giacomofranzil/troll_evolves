@@ -25,10 +25,90 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install ".[dev]"
-          python -m pip install "pyinstaller>=6.11"
+          python -m pip install "pyinstaller>=6.11,<7"
+
+      - name: Test the app and packaging contract
+        run: >-
+          python -m pytest
+          tests/test_app.py
+          tests/test_cli_app.py
+          tests/test_windows_packaging.py
 
       - name: Freeze the Streamlit app
         run: python -m PyInstaller packaging/hsmpace.spec --noconfirm --clean
+
+      - name: Smoke-test the frozen app
+        shell: pwsh
+        run: |
+          $required = @(
+            "dist/hsmpace/hsmpace.exe",
+            "dist/hsmpace/python312.dll",
+            "dist/hsmpace/hsmpace/app/streamlit_app.py",
+            "dist/hsmpace/streamlit/static/index.html",
+            "dist/hsmpace/.streamlit/config.toml",
+            "dist/hsmpace/hsmpace/app/.streamlit/config.toml",
+            "dist/hsmpace/WINDOWS-README.txt"
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path -LiteralPath $path)) {
+              throw "Missing required packaged file: $path"
+            }
+          }
+          if (-not (Get-ChildItem "dist/hsmpace" -Directory -Filter "streamlit-*.dist-info")) {
+            throw "Missing Streamlit package metadata"
+          }
+
+          $port = 18731
+          $stdout = Join-Path $env:RUNNER_TEMP "hsmpace-stdout.log"
+          $stderr = Join-Path $env:RUNNER_TEMP "hsmpace-stderr.log"
+          $process = Start-Process `
+            -FilePath (Resolve-Path "dist/hsmpace/hsmpace.exe") `
+            -ArgumentList "--port", "$port" `
+            -RedirectStandardOutput $stdout `
+            -RedirectStandardError $stderr `
+            -PassThru
+
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 90; $attempt++) {
+              if ($process.HasExited) {
+                break
+              }
+              try {
+                $health = Invoke-WebRequest `
+                  -Uri "http://127.0.0.1:$port/_stcore/health" `
+                  -UseBasicParsing `
+                  -TimeoutSec 2
+                if ($health.StatusCode -eq 200) {
+                  $ready = $true
+                  break
+                }
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $ready) {
+              throw "Frozen app did not become healthy on port $port"
+            }
+
+            $page = Invoke-WebRequest `
+              -Uri "http://127.0.0.1:$port/" `
+              -UseBasicParsing `
+              -TimeoutSec 10
+            if ($page.StatusCode -ne 200 -or -not $page.Content) {
+              throw "Frozen app did not serve its web interface"
+            }
+          } catch {
+            Write-Host "---- hsmpace stdout ----"
+            if (Test-Path $stdout) { Get-Content $stdout }
+            Write-Host "---- hsmpace stderr ----"
+            if (Test-Path $stderr) { Get-Content $stderr }
+            throw
+          } finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+            }
+          }
 
       - name: Upload hsmpace-windows
         uses: actions/upload-artifact@v4
@@ -36,3 +116,4 @@ jobs:
           name: hsmpace-windows
           path: dist/hsmpace
           if-no-files-found: error
+          include-hidden-files: true

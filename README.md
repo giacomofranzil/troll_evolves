@@ -59,9 +59,12 @@ with their speed changes through the stands, coilbox and coiler.
 If Python cannot be installed on the machine, the package can be bundled into a single executable with
 PyInstaller and the behaviour stays identical.
 
-Without installing Python: on GitHub open **Actions → Windows app → Run workflow**, then download the
-`hsmpace-windows` artifact from that run. Unzip it and double-click `hsmpace.exe`. That is `hsmpace app`
-at http://127.0.0.1:8731. The executable is not committed.
+Without installing Python: on GitHub open **Actions → Windows app → Run workflow** on `main`, then
+download the `hsmpace-windows` artifact from the completed run. Extract the whole ZIP to a local
+folder (do not run inside the ZIP or move only the `.exe`), double-click `hsmpace.exe`, leave its
+console window open, and browse to http://127.0.0.1:8731. The artifact includes the Python runtime,
+Streamlit assets, and `WINDOWS-README.txt`; no installation or administrator access is required.
+Close the console window to stop the app. The executable is not committed or code-signed.
 
 ### Command line
 
