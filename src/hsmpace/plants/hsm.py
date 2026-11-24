@@ -90,29 +90,22 @@ def validate(case: Case) -> list[Problem]:
                 "setting:coiler_pattern",
                 f"coiler_pattern: {cid!r} is not a coiler in the layout",
             )
-    if len(coilers) >= 2:
-        if not pattern:
+    # An empty pattern is not a problem: Case.coiler_cycle falls back to every coiler.
+    if len(coilers) >= 2 and pattern:
+        used = set(pattern)
+        if len(used) < 2:
             add(
                 "setting:coiler_pattern",
-                "with two or more coilers, coiler_pattern is required "
-                "(comma separated ids, for example DC1,DC2). If only one coiler is used, "
-                "remove the others from the layout",
+                "with two or more coilers, coiler_pattern must name at least two "
+                "distinct coilers. If every piece goes to one mandrel, remove the "
+                "unused coilers from the layout",
             )
-        else:
-            used = set(pattern)
-            if len(used) < 2:
-                add(
-                    "setting:coiler_pattern",
-                    "with two or more coilers, coiler_pattern must name at least two "
-                    "distinct coilers. If every piece goes to one mandrel, remove the "
-                    "unused coilers from the layout",
-                )
-            for unused in sorted(coiler_ids - used):
-                warn(
-                    f"equipment:{unused}",
-                    f"{unused} is in the layout but not in coiler_pattern; remove it "
-                    "from the layout if it is not used",
-                )
+        for unused in sorted(coiler_ids - used):
+            warn(
+                f"equipment:{unused}",
+                f"{unused} is in the layout but not in coiler_pattern; remove it "
+                "from the layout if it is not used",
+            )
     elif pattern and coilers:
         only = coilers[0].id
         for cid in pattern:

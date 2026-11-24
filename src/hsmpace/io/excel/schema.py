@@ -181,12 +181,17 @@ UTILITY_COLUMNS = [
 SIM_KEYS = [
     ("pacing_s", 170.0, "Nominal cadence between one piece and the next, s"),
     ("n_pieces", 3, "Number of simulated pieces"),
-    ("piece_products", "", "Comma separated product sequence (empty = repeat the first)"),
+    (
+        "piece_products",
+        "",
+        "Comma separated product sequence (empty = repeat the first). In the app the "
+        "Product dropdown can run every piece with one product instead",
+    ),
     (
         "coiler_pattern",
         "",
-        "Repeating coiler cycle, comma separated (empty = the only coiler). "
-        "Required when the layout has two or three coilers, e.g. DC1,DC2",
+        "Repeating coiler cycle, comma separated, e.g. DC1,DC2 (empty = all the "
+        "coilers of the Layout sheet, in row order, in turn)",
     ),
     ("gap_min_m", 5.0, "Minimum distance allowed between a tail and the next head, m"),
     ("pacing_scan_min_s", 70.0, "Lower bound of the pacing scan, s"),
@@ -446,11 +451,24 @@ GUIDE_TEXT = [
         "the same idea as piece_products: DC1,DC2 alternates; DC1,DC2,DC3 is a "
         "round robin; DC1,DC2,DC1,DC3 is a longer cadence. Piece 1 takes the first "
         "id, piece 2 the second, then it wraps. "
-        "With two or three coilers the pattern is required and must name at least two "
-        "of them. If every piece goes to one mandrel, or if you use only two of three, "
+        "Leave coiler_pattern empty to use all the coilers in turn, in the order of "
+        "their Layout rows: the app and hsmpace run say so in a short note. A pattern "
+        "that is filled in is checked: with two or three coilers it must name at least "
+        "two of them, and only ids of coiler rows. If every piece goes to one mandrel, "
+        "or if you use only two of three, "
         "remove the unused rows from the Layout rather than leaving them idle. A piece "
         "assigned to a downstream coiler does not stop at the one upstream: the head "
         "passes it, which is the in-line layout.",
+        False,
+    ),
+    ("", False),
+    ("Which product each piece is", True),
+    (
+        "piece_products on the Simulation sheet is the repeating product cycle, and "
+        "empty means the first row of the Products sheet for every piece. hsmpace run "
+        "always uses it. In the app the Product dropdown of the sidebar starts on "
+        "Workbook sequence, which is that same cycle; choosing a product there runs "
+        "every piece of the sequence with it, without editing the workbook.",
         False,
     ),
     ("", False),

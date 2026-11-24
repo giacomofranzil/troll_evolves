@@ -47,6 +47,9 @@ def test_the_empty_template_has_the_sheets_and_headers(tmp_path):
     assert "as late as possible" in guide
     assert "coiler_pattern" in guide
     assert "Several coilers" in guide
+    assert "Leave coiler_pattern empty to use all the coilers in turn" in guide
+    assert "the pattern is required" not in guide
+    assert "Product dropdown" in guide
     assert "coilbox" in guide
     assert "bypass" in guide
     assert "occupy" in guide
@@ -166,18 +169,54 @@ def test_an_older_workbook_without_coiler_pattern_still_loads(tmp_path):
     assert loaded.piece_coiler_ids == ("DC1",) * loaded.settings.n_pieces
 
 
-def test_two_coilers_in_excel_require_the_pattern(tmp_path):
-    path = write_case(example_case(), tmp_path / "no_cycle.xlsx")
+def _with_coiler_pattern(tmp_path, value):
+    """The example workbook (DC1, DC2, DC3) with the coiler_pattern cell set to ``value``."""
+    path = write_case(example_case(), tmp_path / "pattern.xlsx")
     wb = load_workbook(path)
     ws = wb["Simulation"]
     for row in range(2, ws.max_row + 1):
         if ws.cell(row=row, column=1).value == "coiler_pattern":
-            ws.cell(row=row, column=2).value = ""
+            ws.cell(row=row, column=2).value = value
             break
+    else:
+        raise AssertionError("coiler_pattern row not found")
     wb.save(path)
+    return path
 
-    with pytest.raises(ValidationError, match="coiler_pattern"):
-        read_case(path)
+
+@pytest.mark.parametrize("empty", ["", None, "   "])
+def test_an_empty_pattern_in_excel_uses_all_coilers_in_turn(tmp_path, empty):
+    loaded = read_case(_with_coiler_pattern(tmp_path, empty))
+    assert loaded.settings.coiler_pattern == ()
+    assert loaded.piece_coiler_ids == ("DC1", "DC2", "DC3")
+    assert "DC1, DC2, DC3" in loaded.default_coiler_note
+    assert not loaded.warnings
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("DC1,DC9", "'DC9' is not a coiler in the layout"),
+        ("DC1,DC1", "at least two distinct coilers"),
+        (",", "does not name any coiler"),
+        ("F7,DC1", "'F7' is not a coiler in the layout"),
+    ],
+)
+def test_a_filled_but_invalid_pattern_in_excel_is_still_an_error(tmp_path, value, message):
+    with pytest.raises(ValidationError, match=message) as exc:
+        read_case(_with_coiler_pattern(tmp_path, value))
+    assert all(i.sheet == "Simulation" for i in exc.value.issues)
+
+
+def test_the_template_note_describes_the_default_cycle(tmp_path):
+    path = write_case(example_case(), tmp_path / "template.xlsx", include_data=False)
+    ws = load_workbook(path)["Simulation"]
+    notes = {row[0].value: (row[1].value, row[2].value) for row in ws.iter_rows(min_row=2)}
+    value, note = notes["coiler_pattern"]
+    assert value in ("", None)
+    assert "empty = all the coilers" in note
+    assert "Required" not in note
+    assert "Product dropdown" in notes["piece_products"][1]
 
 
 def test_a_misplaced_reversal_value_is_only_a_warning(tmp_path):

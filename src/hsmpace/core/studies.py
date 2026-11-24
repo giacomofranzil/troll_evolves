@@ -20,17 +20,12 @@ def base_results(case: Case) -> dict[tuple[str, str], PieceResult]:
     """One simulation per (product, coiler) pair that the sequence can request.
 
     The cache is the cartesian product of the products in the case and the
-    coilers named by ``coiler_pattern`` (or the only coiler). That way the
-    number of pieces can change later, as the UI slider does, without missing
-    a pairing.
+    coilers in the cycle in force (``coiler_pattern``, or every coiler when it
+    is empty). That way the number of pieces and the product of each piece can
+    change later, as the UI does, without missing a pairing.
     """
     out: dict[tuple[str, str], PieceResult] = {}
-    if case.settings.coiler_pattern:
-        coiler_ids = list(dict.fromkeys(case.settings.coiler_pattern))
-    elif case.line.coilers:
-        coiler_ids = [case.line.coilers[0].id]
-    else:
-        coiler_ids = [""]
+    coiler_ids = list(dict.fromkeys(case.coiler_cycle)) or [""]
     for product in case.products:
         for cid in coiler_ids:
             assigned = case.line.get(cid) if cid else None

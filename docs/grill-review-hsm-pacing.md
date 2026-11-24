@@ -663,8 +663,9 @@ explicitly in the guide. With several coilers the same virtual travel from the s
 mandrel: TRoll does not treat the downcoilers, so the trigger is not recomputed as table plus wraps.
 
 **Several in-line coilers.** Up to three, each at its own `x`. Assignment is `coiler_pattern` on the
-Simulation sheet, a repeating cycle of ids like `piece_products` (`DC1,DC2` alternates). With two or
-three coilers the pattern is required and must name at least two of them; unused layout rows are a
+Simulation sheet, a repeating cycle of ids like `piece_products` (`DC1,DC2` alternates). An empty
+pattern uses all the coilers in turn, in Layout order, with a short note. A pattern that is filled
+in must name at least two of the two or three coilers; unused layout rows are a
 warning to remove them. A piece for a downstream coiler does not stop at the one upstream. Gap stays
 one-dimensional on the whole table. The coiler is not a product field: the same product often
 alternates.

@@ -535,10 +535,62 @@ def test_a_long_coiler_pattern_is_cycled():
     assert results[3].x_coiler == pytest.approx(260.0)
 
 
-def test_two_coilers_without_a_pattern_are_rejected():
-    case = _case(_two_coilers([("R", 50.0)]), [_pass(1, "R", FWD, 100.0, 50.0, 4.0)])
+def test_an_empty_pattern_cycles_through_all_coilers():
+    extra = [Equipment("DC3", "coiler", 260.0, accel=1.0)]
+    case = replace(
+        _case(
+            _two_coilers([("R", 50.0)], extra=extra),
+            [_pass(1, "R", FWD, 100.0, 50.0, 4.0)],
+        ),
+        settings=SimSettings(n_pieces=5),
+    )
+    assert not validate_case(case)
+    assert case.coiler_cycle == ("DC1", "DC2", "DC3")
+    assert case.piece_coiler_ids == ("DC1", "DC2", "DC3", "DC1", "DC2")
+    assert "DC1, DC2, DC3" in case.default_coiler_note
+
+    results = simulate_case(case)
+    assert [r.coiler_id for r in results] == list(case.piece_coiler_ids)
+    assert [r.x_coiler for r in results[:3]] == pytest.approx([200.0, 230.0, 260.0])
+
+    base = base_results(case)
+    assert set(base) == {("P", "DC1"), ("P", "DC2"), ("P", "DC3")}
+    cached = sequence(case, base, case.settings.pacing)
+    assert [r.coiler_id for r in cached] == list(case.piece_coiler_ids)
+
+
+def test_the_default_cycle_follows_the_layout_rows():
+    """Layout order, not position order: the rows are what the user wrote."""
+    line = _two_coilers([("R", 50.0)], dc1=230.0, dc2=200.0)
+    case = replace(
+        _case(line, [_pass(1, "R", FWD, 100.0, 50.0, 4.0)]),
+        settings=SimSettings(n_pieces=2),
+    )
+    assert case.piece_coiler_ids == ("DC1", "DC2")
+    assert [r.x_coiler for r in simulate_case(case)] == pytest.approx([230.0, 200.0])
+
+
+def test_the_default_note_is_only_for_a_real_choice():
+    """One coiler, or a pattern that is filled in: nothing was chosen by default."""
+    single = _case(_line([("R", 50.0)]), [_pass(1, "R", FWD, 100.0, 50.0, 4.0)])
+    assert single.default_coiler_note is None
+    assert set(single.piece_coiler_ids) == {"DC"}
+
+    explicit = replace(
+        _case(_two_coilers([("R", 50.0)]), [_pass(1, "R", FWD, 100.0, 50.0, 4.0)]),
+        settings=SimSettings(n_pieces=2, coiler_pattern=("DC2", "DC1")),
+    )
+    assert explicit.default_coiler_note is None
+    assert explicit.piece_coiler_ids == ("DC2", "DC1")
+
+
+def test_a_pattern_with_an_unknown_coiler_is_rejected():
+    case = replace(
+        _case(_two_coilers([("R", 50.0)]), [_pass(1, "R", FWD, 100.0, 50.0, 4.0)]),
+        settings=SimSettings(n_pieces=2, coiler_pattern=("DC1", "DC9")),
+    )
     messages = [p.message for p in validate_case(case) if not p.is_warning]
-    assert any("coiler_pattern is required" in m for m in messages)
+    assert any("'DC9' is not a coiler in the layout" in m for m in messages)
 
 
 def test_a_pattern_with_one_distinct_id_is_rejected():
