@@ -5,12 +5,15 @@ temperatures °C, slab weight t, input speeds m/min, predicted speeds m/s,
 SpeedHead/SpeedTail/roll surface rpm (ignored), SpeedUpAccel m/min/s.
 Cooling banks are omitted in P1. Coilers are omitted: add them in Excel after
 import. The dump is mapped onto a workbook; it is not simulated. Coilbox
-coiling speed defaults to the last rougher exit, uncoiling to F1 entry.
+coiling speed defaults to the last rougher exit, uncoiling to F1 entry. Without
+a coilbox the F1 entry speed goes on the first finishing pass as its approach
+speed, per product, so the transfer bar is slowed to it before the bite.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import replace
 from pathlib import Path
 
 from ...core.model import (
@@ -209,6 +212,13 @@ def _case_from_root(root: ET.Element, source_name: str) -> Case:
             "Coilbox coiling speed = last rougher PredictedExitSpeedHead; "
             "uncoiling = F1 PredictedEntrySpeedHead."
         )
+    else:
+        remarks.append(
+            "No coilbox: approach_v_mps on the first finishing pass of each product = "
+            "its PredictedEntrySpeedHead. The transfer bar slows to it as late as "
+            "possible, at the roller table acceleration, and reaches it at the stand. "
+            "Add a speed change on the Sections sheet if the bar slows earlier."
+        )
 
     settings = SimSettings(
         n_pieces=1,
@@ -337,6 +347,11 @@ def _product_from_piece(
     if first_fm is not None:
         pas_fm = next(p for p, n, _t in stand_passes if n == first_fm.equipment_id)
         v_uncoil = _float(pas_fm.find("SpeedData"), "PredictedEntrySpeedHead", first_fm.v_entry) or 0.0
+        # With a coilbox the uncoiling speed brings the bar to F1 entry speed.
+        # Without one nothing else does: the bar would bite at the last
+        # roughing exit speed, several times too fast.
+        if not has_coilbox and v_uncoil > 0.0 and rolling.index(first_fm) > 0:
+            rolling[rolling.index(first_fm)] = replace(first_fm, approach_v=v_uncoil)
 
     product = Product(
         id=pid,
