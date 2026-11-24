@@ -115,6 +115,8 @@ class SpeedEvent:
     direction: int = FWD
     during_pass: bool = False
     origin: str = "section"
+    """``section`` for a speed change of the Sections sheet, ``zoom`` for zoom
+    rolling, ``approach`` for the approach speed of a pass."""
     rel_pct: float = 0.0
     """When non zero the event is relative: it multiplies the commanded speed
     instead of replacing it. Used by zoom rolling, which is defined in per cent."""
@@ -163,6 +165,11 @@ class RollingPass:
     wish: the model derives the tail-out speed that makes it. Empty (zero)
     keeps the shortest stop after tail-out, at `v^2/(2a)`."""
     approach_v: float | None = None
+    """Speed of the leading extremity when it reaches the stand of this pass.
+    On the first pass and after a reversal it is where the piece is sent, and
+    empty means the entry speed of the pass. On a pass reached in the same
+    direction from another stand it is met by an anticipated ramp that ends on
+    the stand, and empty means no command: the piece keeps the speed it has."""
     master: bool = False
     zoom_pct: float = 0.0
     zoom_trigger: float = 0.0
@@ -566,6 +573,25 @@ def validate_case(case: Case) -> list[Problem]:
                     ptag,
                     f"{head}: two consecutive passes on {rp.equipment_id} in the same direction",
                 )
+            if (
+                rp.approach_v is not None
+                and prev is not None
+                and prev.direction == rp.direction
+                and eq is not None
+                and eq.group
+            ):
+                try:
+                    prev_group = line.get(prev.equipment_id).group
+                except ModelError:
+                    prev_group = ""
+                if prev_group == eq.group:
+                    warn(
+                        ptag,
+                        f"{head}: approach_v_mps is ignored inside the tandem group "
+                        f"{eq.group!r}, the strip is still in {prev.equipment_id} when it "
+                        f"reaches {rp.equipment_id}. It belongs to the first pass of the "
+                        "group.",
+                    )
             nxt = product.passes[i + 1] if i + 1 < len(product.passes) else None
             reversal_follows = nxt is not None and nxt.direction != rp.direction
             if not reversal_follows and (rp.reversing_delay or rp.reversing_clearance):

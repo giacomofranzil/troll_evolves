@@ -33,6 +33,13 @@ and commanded on the leading extremity. It starts as late as possible, including
 while the finishing mill is still rolling: the tail is held at the coiler
 deceleration and the lead is driven at that rate times the remaining elongation
 chain, so that the tail meets ``coiler_v_final`` at the mandrel.
+
+A stand takes the piece at the entry speed of its pass. The speed the leading
+extremity must have at the bite is the ``approach_v`` of the pass: on the first
+pass and after a reversal it is where the piece is sent, on a pass reached in
+the same direction from another stand it is met by an anticipated ramp that
+ends on the stand. A bite more than ``BITE_SPEED_TOLERANCE`` above the entry
+speed is reported, because the elongation of every stand multiplies the excess.
 """
 
 from __future__ import annotations
@@ -69,6 +76,11 @@ _MAX_ITER = 200_000
 _HORIZON = 2_000.0
 _V_EPS = 1e-9
 _X_EPS = 1e-6
+
+BITE_SPEED_TOLERANCE = 0.10
+"""Relative excess of the arrival speed over the pass entry speed above which a
+bite is reported. Only an arrival that is too fast is reported: a slower one is
+ordinary threading, the stand accelerates to the pass speed after the bite."""
 
 
 @dataclass(frozen=True)
@@ -246,6 +258,26 @@ def simulate_piece(
 
     active_events: list[SpeedEvent] = list(line.all_events())
 
+    # approach speed of a pass reached in the same direction from another stand:
+    # planned like a speed change whose target position is the stand itself. On
+    # the first pass and after a reversal the approach speed is commanded
+    # directly, so no ramp has to be planned for those.
+    approach_events: dict[int, SpeedEvent] = {}
+    for i, rp_i in enumerate(passes):
+        if i == 0 or rp_i.approach_v is None or passes[i - 1].direction != rp_i.direction:
+            continue
+        approach_events[i] = SpeedEvent(
+            id=f"approach-{product.id}-{rp_i.pass_no}",
+            section_id="",
+            x_trigger=line.get(rp_i.equipment_id).x,
+            v_target=rp_i.approach_v,
+            direction=rp_i.direction,
+            origin="approach",
+        )
+    bite_consumed: set[str] = set()
+    bite_warned = False
+    deferred_stand = ""
+
     events.append(
         SimEvent(t, "release", line.start.id, x_head, f"slab {product.slab_len:.1f} m")
     )
@@ -267,6 +299,31 @@ def simulate_piece(
         a_c = coiler.accel if coiler is not None else settings.table_accel
         ramp_accel = a_c * lam
         nominal_target = settings.coiler_v_final * lam
+
+    def not_applied(ev: SpeedEvent, reason: str) -> None:
+        warnings.append(
+            f"section event {ev.id}: {ev.v_target:.2f} m/s at x={ev.x_trigger:.1f} m "
+            f"was not applied. {reason}"
+        )
+
+    def defer(ev: SpeedEvent) -> None:
+        nonlocal deferred, deferred_stand, armed_id
+        if deferred is not None and deferred.id != ev.id:
+            not_applied(
+                deferred,
+                f"It was held while the piece was being rolled on {deferred_stand} and "
+                f"section event {ev.id} replaced it before the mill released the piece.",
+            )
+        deferred = ev
+        deferred_stand = engaged[-1][0].equipment_id if engaged else ""
+        armed_id = None
+
+    def replan_approach() -> None:
+        # another command took over the target: the approach ramp under way is
+        # dropped so that it is planned again from the new speed
+        nonlocal armed_id
+        if armed_id is not None and armed_id.startswith("approach-"):
+            armed_id = None
 
     def pending_reversal() -> RollingPass | None:
         if not engaged or next_idx >= len(passes) or next_idx < 1:
@@ -356,6 +413,7 @@ def simulate_piece(
             braking = False
             reverse_slowing = False
             v_star_rev = None
+            bite_consumed.clear()
             events.append(
                 SimEvent(
                     t, "reverse_end", nxt.equipment_id, x_head, f"heading to pass {nxt.pass_no}"
@@ -431,6 +489,35 @@ def simulate_piece(
 
         horizon = min(t + _HORIZON, t_max)
         candidates: list[tuple[float, str, object]] = []
+
+        # the next pass can bite only when its stand is still ahead: without this
+        # guard, right after a bite the leading extremity sits exactly on the
+        # stand and a second pass on the same stand would bite at the same instant.
+        # A ramp that ends on the stand leaves the leading extremity there with
+        # nothing engaged on it: that is the bite itself, not a stand gone by
+        bite_live = False
+        bite_now = False
+        x_next = 0.0
+        if next_idx < len(passes):
+            nxt = passes[next_idx]
+            x_next = line.get(nxt.equipment_id).x
+            blocked_by_box = (
+                coilbox is not None
+                and x_cb is not None
+                and not cb_inverted
+                and nxt.direction == FWD
+                and x_next > x_cb + _X_EPS
+            )
+            gap_next = direction * (x_next - lead_x)
+            bite_now = abs(gap_next) <= _X_EPS and not any(
+                abs(x_stand - x_next) <= _X_EPS for _rp, x_stand, _t_in in engaged
+            )
+            bite_live = (
+                nxt.direction == direction
+                and not reversing
+                and (gap_next > _X_EPS or bite_now)
+                and not blocked_by_box
+            )
 
         # mill slowdown so tail-out speed lets the table stop exactly at clearance
         rev_pass = pending_reversal()
@@ -550,18 +637,31 @@ def simulate_piece(
         # ramp is anticipated. Only the nearest event ahead is armed.
         # zoom rolling keeps the opposite convention on purpose: its trigger is the
         # position where the acceleration STARTS, as in the offline model TRoll
-        pending = _next_event(active_events, lead_x, direction, armed_id)
+        approach = approach_events.get(next_idx) if bite_live else None
+        if approach is not None and armed_id == approach.id:
+            pending = None
+        else:
+            pending = _next_event(active_events, lead_x, direction, armed_id, approach)
         if pending is not None and pending.rel_pct:
+            pending = None
+        if (
+            pending is not None
+            and pending.origin == "approach"
+            and abs(pending.v_target - nominal_target * zoom_factor) <= _V_EPS
+        ):
+            # already heading for the approach speed: nothing to plan
             pending = None
         if pending is not None and not reversing and not coiler_braking and not reverse_slowing:
             gap0 = direction * (pending.x_trigger - lead_x)
             target = pending.v_target
             a_ramp = pending.accel or prevailing
             # a ramp cannot be planned across a rolling pass: the bite would reset
-            # the speed anyway, so the event is left to its normal handling
+            # the speed anyway, so the event is left to its normal handling. A
+            # target position on the stand itself is the speed at the bite and
+            # is not across the pass
             blocked = any(
                 0.0 < direction * (line.get(p.equipment_id).x - lead_x)
-                < direction * (pending.x_trigger - lead_x)
+                < direction * (pending.x_trigger - lead_x) - _X_EPS
                 for p in passes[next_idx:]
                 if p.direction == direction
             )
@@ -583,26 +683,14 @@ def simulate_piece(
         if a_lead != 0.0:
             candidates.append((t + (v_target - v_lead) / a_lead, "ramp", None))
 
-        if next_idx < len(passes):
-            nxt = passes[next_idx]
-            x_stand = line.get(nxt.equipment_id).x
-            # the stand must still be ahead: without this guard, right after a bite
-            # the leading extremity sits exactly on the stand and a second pass on
-            # the same stand would bite at the very same instant
-            ahead = direction * (x_stand - lead_x) > _X_EPS
-            blocked_by_box = (
-                coilbox is not None
-                and x_cb is not None
-                and not cb_inverted
-                and nxt.direction == FWD
-                and x_stand > x_cb + _X_EPS
+        if bite_live:
+            t_hit = (
+                t
+                if bite_now
+                else solve_crossing(t, lead_x, lead_v, lead_a, x_next, t, horizon, direction)
             )
-            if nxt.direction == direction and not reversing and ahead and not blocked_by_box:
-                t_hit = solve_crossing(
-                    t, lead_x, lead_v, lead_a, x_stand, t, horizon, direction
-                )
-                if t_hit is not None:
-                    candidates.append((t_hit, "bite", None))
+            if t_hit is not None:
+                candidates.append((t_hit, "bite", None))
 
         for i, (rp, x_stand, _t_in) in enumerate(engaged):
             t_hit = solve_crossing(
@@ -617,6 +705,12 @@ def simulate_piece(
             if reversing and ev.origin == "section":
                 continue
             if reverse_slowing and ev.origin == "section":
+                continue
+            if ev.id in bite_consumed:
+                continue
+            if bite_live and ev.origin == "section" and abs(ev.x_trigger - x_next) <= _X_EPS:
+                # a speed change that ends on the next stand is the speed at the
+                # bite: it is settled there, not as a crossing of its own
                 continue
             last = fired.get(ev.id)
             t_hit = solve_crossing(
@@ -815,9 +909,9 @@ def simulate_piece(
             ramp_accel = ev.accel
             if engaged:
                 warnings.append(
-                    f"section event {ev.id}: to reach {armed_target:.2f} m/s at "
-                    f"x={ev.x_trigger:.1f} m the ramp has to start while the piece is still "
-                    "being rolled, so the mill speed changes during the pass."
+                    f"{_event_label(ev, passes, next_idx)}: to reach {armed_target:.2f} m/s "
+                    f"at x={ev.x_trigger:.1f} m the ramp has to start while the piece is "
+                    "still being rolled, so the mill speed changes during the pass."
                 )
             continue
 
@@ -842,6 +936,96 @@ def simulate_piece(
         if action == "bite":
             rp = passes[next_idx]
             eq = line.get(rp.equipment_id)
+            v_arrival = v_lead
+            held_by = engaged[-1][0].equipment_id if engaged else ""
+
+            approach = approach_events.get(next_idx)
+            if approach is not None:
+                label = _event_label(approach, passes, next_idx)
+                if abs(v_arrival - approach.v_target) > _reach_tolerance(approach.v_target):
+                    if held_by:
+                        warnings.append(
+                            f"{label}: {approach.v_target:.2f} m/s not applied, the piece "
+                            f"was still being rolled on {held_by} when it reached "
+                            f"{eq.id} at {v_arrival:.2f} m/s. While rolling the mill "
+                            "commands."
+                        )
+                    else:
+                        warnings.append(
+                            f"{label}: {approach.v_target:.2f} m/s requested at "
+                            f"x={eq.x:.1f} m, {v_arrival:.2f} m/s reached. Not enough "
+                            "distance to complete the ramp."
+                        )
+                elif armed_id == approach.id:
+                    events.append(
+                        SimEvent(
+                            t,
+                            "speed_change",
+                            eq.id,
+                            eq.x,
+                            f"{approach.v_target:.2f} m/s reached at the bite of pass "
+                            f"{rp.pass_no} (approach speed)",
+                        )
+                    )
+
+            for ev in active_events:
+                if (
+                    ev.origin != "section"
+                    or ev.direction != direction
+                    or abs(ev.x_trigger - eq.x) > _X_EPS
+                ):
+                    continue
+                bite_consumed.add(ev.id)
+                fired[ev.id] = t
+                if armed_id != ev.id and held_by and not ev.during_pass:
+                    defer(ev)
+                    continue
+                if abs(v_arrival - ev.v_target) > _reach_tolerance(ev.v_target):
+                    why = (
+                        f"approach_v_mps of pass {rp.pass_no} takes precedence on its "
+                        "own stand."
+                        if approach is not None
+                        else "Not enough distance to complete the ramp."
+                    )
+                    warnings.append(
+                        f"section event {ev.id}: {ev.v_target:.2f} m/s requested at "
+                        f"x={ev.x_trigger:.1f} m, {v_arrival:.2f} m/s reached. {why}"
+                    )
+                    detail = (
+                        f"{ev.v_target:.2f} m/s requested at the bite of {eq.id}, "
+                        f"{v_arrival:.2f} m/s reached"
+                    )
+                else:
+                    detail = f"{ev.v_target:.2f} m/s reached here as requested"
+                events.append(
+                    SimEvent(t, "speed_change", ev.section_id, ev.x_trigger, detail)
+                )
+
+            v_entry_ref = rp.v_entry * max(zoom_factor, 1.0)
+            if not bite_warned and v_arrival > v_entry_ref * (1.0 + BITE_SPEED_TOLERANCE):
+                bite_warned = True
+                excess = 100.0 * (v_arrival / v_entry_ref - 1.0)
+                if held_by:
+                    remedy = (
+                        f"The piece is still in {held_by}: check the speeds of the two "
+                        "passes against the mass flow balance, which a master in the "
+                        "tandem group enforces."
+                    )
+                else:
+                    remedy = (
+                        "Slow the piece ahead of the stand: approach_v_mps on this pass, "
+                        "or a speed change on the Sections sheet that ends at or before "
+                        "the stand."
+                    )
+                warnings.append(
+                    f"pass {rp.pass_no} on {eq.id}: the piece bites at {v_arrival:.2f} m/s, "
+                    f"{excess:.0f}% above the entry speed of the pass "
+                    f"({v_entry_ref:.2f} m/s). The head leaves the stand at "
+                    f"{v_arrival * rp.elongation:.2f} m/s instead of "
+                    f"{rp.v_exit * max(zoom_factor, 1.0):.2f} m/s, and each stand after "
+                    f"it in a tandem multiplies the excess. {remedy}"
+                )
+
             lam *= rp.elongation
             v_lead *= rp.elongation
             engaged.append((rp, eq.x, t))
@@ -897,12 +1081,23 @@ def simulate_piece(
             if coiler_braking:
                 apply_coiler_command()
             if not engaged:
+                bite_warned = False
+                if deferred is not None and coiler_braking:
+                    not_applied(
+                        deferred,
+                        f"The piece was being rolled on {deferred_stand} when it got "
+                        "there, so the change was held until the mill released it, and "
+                        "by then the slowdown towards the coiler had started. To set "
+                        "the speed ahead of a stand, end the change at or before it.",
+                    )
+                    deferred = None
                 if deferred is not None and not coiler_braking:
                     pendingev, deferred = deferred, None
                     if pendingev.rel_pct:
                         zoom_factor *= 1.0 + pendingev.rel_pct / 100.0
                     else:
                         nominal_target = pendingev.v_target
+                        replan_approach()
                     ramp_accel = pendingev.accel
                     events.append(
                         SimEvent(
@@ -956,15 +1151,20 @@ def simulate_piece(
             # zoom is commanded on the virtual head and must not depend on which
             # coiler takes the strip; other section events stay suppressed
             if (coiler_braking or reverse_slowing) and not trig.rel_pct:
+                if coiler_braking:
+                    not_applied(
+                        trig,
+                        "The slowdown towards the coiler had already started when the "
+                        "piece got there.",
+                    )
                 continue
             if engaged and not trig.during_pass:
-                deferred = trig
-                armed_id = None
+                defer(trig)
                 continue
             anticipated = armed_id == trig.id
             if anticipated:
                 armed_id = None
-                if abs(v_lead - armed_target) > max(0.02 * max(armed_target, 1.0), 0.05):
+                if abs(v_lead - armed_target) > _reach_tolerance(armed_target):
                     warnings.append(
                         f"section event {trig.id}: {armed_target:.2f} m/s requested at "
                         f"x={trig.x_trigger:.1f} m, {v_lead:.2f} m/s reached. Not enough "
@@ -972,6 +1172,8 @@ def simulate_piece(
                     )
             else:
                 # never armed, for example because the piece was already at speed
+                if not trig.rel_pct:
+                    replan_approach()
                 if trig.rel_pct:
                     zoom_factor *= 1.0 + trig.rel_pct / 100.0
                 else:
@@ -1050,8 +1252,14 @@ def _next_event(
     lead_x: float,
     direction: int,
     armed_id: str | None,
+    approach: SpeedEvent | None = None,
 ) -> SpeedEvent | None:
-    """Nearest event still ahead in the current direction of travel."""
+    """Nearest event still ahead in the current direction of travel.
+
+    ``approach`` is the approach speed of the next pass, whose target position
+    is the stand. It belongs to the pass, so it wins over a section event that
+    ends on the same stand.
+    """
     best: SpeedEvent | None = None
     best_gap = float("inf")
     for ev in active_events:
@@ -1060,7 +1268,23 @@ def _next_event(
         gap = direction * (ev.x_trigger - lead_x)
         if gap > _X_EPS and gap < best_gap:
             best, best_gap = ev, gap
+    if approach is not None and approach.id != armed_id:
+        gap = direction * (approach.x_trigger - lead_x)
+        if gap > _X_EPS and gap <= best_gap + _X_EPS:
+            best = approach
     return best
+
+
+def _reach_tolerance(v_target: float) -> float:
+    """How far from a requested speed the piece may be and still count as there."""
+    return max(0.02 * max(v_target, 1.0), 0.05)
+
+
+def _event_label(ev: SpeedEvent, passes: list[RollingPass], next_idx: int) -> str:
+    if ev.origin == "approach" and next_idx < len(passes):
+        rp = passes[next_idx]
+        return f"pass {rp.pass_no} on {rp.equipment_id}: approach speed"
+    return f"section event {ev.id}"
 
 
 def _still_engaged_at(
