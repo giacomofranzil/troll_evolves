@@ -130,8 +130,12 @@ def test_the_app_notes_the_default_coiler_cycle(app: AppTest, tmp_path):
     def assignment(at: AppTest) -> str:
         return next(c.value for c in at.caption if c.value.startswith("Coiler assignment"))
 
+    note = (
+        "coiler_pattern is empty: all coilers are used in turn, in Layout order "
+        "(DC1, DC2, DC3)."
+    )
     assert "repeating cycle from the workbook" in assignment(app)
-    assert "coiler_pattern is empty" not in assignment(app)
+    assert note not in [i.value for i in app.info]
 
     at = AppTest.from_file(str(SCRIPT), default_timeout=180)
     at.run()
@@ -143,12 +147,8 @@ def test_the_app_notes_the_default_coiler_cycle(app: AppTest, tmp_path):
 
     assert not at.exception, [e.value for e in at.exception]
     assert not at.error, [e.value for e in at.error]
-    caption = assignment(at)
-    assert "Coiler assignment (default cycle): #1→DC1, #2→DC2, #3→DC3." in caption
-    assert (
-        "coiler_pattern is empty: all coilers are used in turn, in Layout order "
-        "(DC1, DC2, DC3)." in caption
-    )
+    assert "Coiler assignment (default cycle): #1→DC1, #2→DC2, #3→DC3." in assignment(at)
+    assert note in [i.value for i in at.info]
     assert list(_piece_table(at)["coiler"]) == ["DC1", "DC2", "DC3"]
 
 

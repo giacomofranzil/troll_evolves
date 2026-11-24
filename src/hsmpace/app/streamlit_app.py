@@ -299,10 +299,11 @@ def main() -> None:
     origin = "default cycle" if default_note else "repeating cycle from the workbook"
     st.caption(
         f"Coiler assignment ({origin}): {assignment}. "
-        + (f"{default_note} " if default_note else "")
-        + "Zoom rolling uses the same virtual-head trigger for every mandrel; "
+        "Zoom rolling uses the same virtual-head trigger for every mandrel; "
         "pinning and the tail slowdown use the assigned coiler."
     )
+    if default_note:
+        st.info(default_note)
     for remark in case.warnings:
         st.warning(remark)
 
