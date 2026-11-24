@@ -132,8 +132,11 @@ PASS_COLUMNS = [
     ),
     (
         "approach_v_mps",
-        "Speed at which the piece comes back towards THIS pass after a reversal "
-        "(empty = entry speed of the pass)",
+        "Speed of the leading end when it reaches the stand of THIS pass. After a "
+        "reversal and on the first pass: the speed the piece is sent at (empty = "
+        "entry speed of the pass). On a pass reached in the same direction from "
+        "another stand, such as F1 after the last roughing pass: met by a ramp that "
+        "ends on the stand (empty = no command, the piece keeps the speed it has)",
     ),
     ("master", "YES on the stand that sets the mass flow of the tandem group"),
     ("zoom_pct", "Zoom rolling: relative speed change in per cent (negative = slowdown)"),
@@ -320,6 +323,16 @@ GUIDE_TEXT = [
         False,
     ),
     (
+        "A distance that ends exactly on a stand is the speed at the bite of that "
+        "stand, the same for every product: the ramp ends there and the change is not "
+        "applied again when the mill releases the piece. A distance that ends after "
+        "the stand is held as above. If a held change is never applied, because the "
+        "slowdown towards the coiler has started by the time the mill releases the "
+        "piece, or because a later change replaced it in the meantime, the tool says "
+        "so instead of dropping it silently.",
+        False,
+    ),
+    (
         "If instead only the anticipation reaches back into the rolling zone, while the "
         "target position is already in free running, the ramp does start during the pass "
         "and the tool reports it: it is the mill decelerating ahead of tail-out, which is "
@@ -385,6 +398,36 @@ GUIDE_TEXT = [
         "The approach speed instead stays on the row of the pass it belongs to: it is the "
         "speed at which the piece comes back TOWARDS that pass. So for one reversal the "
         "clearance and the delay are on one row and the approach speed on the next.",
+        False,
+    ),
+    ("", False),
+    ("Speed at the bite", True),
+    (
+        "A stand takes the piece at the entry speed of its pass, v_exit divided by "
+        "lambda. At the bite the trailing end keeps its speed and the leading end is "
+        "multiplied by lambda, so a bar that arrives too fast leaves the stand too "
+        "fast by the same factor, and in a tandem every stand multiplies the excess "
+        "again. The roller tables do not slow the bar by themselves: say where it "
+        "slows down.",
+        False,
+    ),
+    (
+        "approach_v_mps on the pass row does it per product. On a pass reached in the "
+        "same direction from another stand, typically F1 after the last roughing pass "
+        "or the first pass on a second rougher, the tool ramps as late as possible, at "
+        "the roller table acceleration, so that the leading end has that speed exactly "
+        "on the stand. Speed changes of the Sections sheet ahead of the stand still "
+        "apply before the ramp. Empty means no command: the piece keeps the speed it "
+        "has. Inside a tandem group the cell is ignored and reported, because the "
+        "strip is still in the previous stand; it is also not applied, and reported, "
+        "when the previous stand still rolls the tail as the head arrives.",
+        False,
+    ),
+    (
+        "The tool warns when a piece bites more than 10 per cent above the entry speed "
+        "of the pass, once for each run of engaged stands, at the first stand where it "
+        "happens. A slower arrival is not reported: it is ordinary threading, the "
+        "stand accelerates to the pass speed after the bite.",
         False,
     ),
     ("", False),
@@ -481,7 +524,10 @@ GUIDE_TEXT = [
         "SpeedHead, SpeedTail and roll rpm are ignored. Cooling banks are omitted. "
         "Coilers are not in TRoll: add coiler rows with x_m here. If a coilbox is "
         "present, coiling speed defaults to the last rougher exit and uncoiling to F1 "
-        "entry. Products are a catalogue; set piece_products on this Simulation sheet.",
+        "entry. Without a coilbox the F1 entry speed predicted by TRoll is written as "
+        "approach_v_mps on the first finishing pass of each product, so every product "
+        "enters F1 at its own speed. "
+        "Products are a catalogue; set piece_products on this Simulation sheet.",
         False,
     ),
     ("", False),

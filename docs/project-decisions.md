@@ -80,6 +80,11 @@ Status labels:
 - The coilbox is imported when present.
 - Coiling speed defaults to the last roughing-pass exit speed.
 - Uncoiling speed defaults to F1 head-entry speed.
+- Without a coilbox, F1 head-entry speed (`PredictedEntrySpeedHead`, or `v_exit / lambda` when the
+  dump has none) is written as `approach_v_mps` on the first finishing pass of each product. The
+  transfer bar reaches it on the stand by an anticipated ramp, so each product enters F1 at its own
+  schedule speed. A single speed change on the `Sections` sheet would hold one value for every
+  product.
 - Detailed coilbox speeds absent from TRoll remain editable after import.
 
 #### Deliberate omissions
