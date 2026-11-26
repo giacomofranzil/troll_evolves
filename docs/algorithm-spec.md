@@ -291,8 +291,11 @@ must not be suppressed just because the nearer coiler started braking earlier.
 ### Several coilers
 
 The layout may list up to three coilers, in line, each at its own `x`. Assignment is a repeating
-cycle `coiler_pattern` of their ids (empty only when a single coiler is present). Piece `i` takes
-`pattern[i mod length]`. A piece assigned to a downstream coiler does not stop at the one upstream:
+cycle of their ids: `coiler_pattern` when it is filled in, otherwise every coiler of the layout in
+Layout order. Piece `i` takes `cycle[i mod length]`. The default is not an error; the app and the
+CLI state that it is in use when it picks among two or three coilers. A pattern that is filled in
+is validated: only coiler ids, and at least two distinct ones when the layout has several. A piece
+assigned to a downstream coiler does not stop at the one upstream:
 the physical head is pinned at the assigned mandrel only. Gap remains one-dimensional on the whole
 table.
 

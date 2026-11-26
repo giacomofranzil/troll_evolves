@@ -52,6 +52,10 @@ The same application runs in two ways, and the choice can be deferred:
   network, no port to open towards the outside;
 * **on an office server**, with `hsmpace app --address 0.0.0.0`, with colleagues opening a URL.
 
+In the sidebar, **Product** starts on *Workbook sequence*, the `piece_products` cycle of the
+Simulation sheet (empty = the first product). Choosing a product there runs every piece of the
+sequence with it, without editing the workbook. `hsmpace run` always follows the workbook.
+
 On the diagram, **Show the virtual head** keeps the unconstrained head after the coiler (the
 zoom trigger), and **Material points** draws 2, 3, 5, … or 21 fixed coordinates along the strip,
 with their speed changes through the stands, coilbox and coiler.
@@ -138,8 +142,10 @@ Other conventions worth knowing:
   the speed the tail actually arrives at.
 * **Several coilers**: up to three in-line downcoilers, each at its own `x`. `coiler_pattern` on the
   Simulation sheet is a repeating cycle of their ids, the same idea as `piece_products`
-  (`DC1,DC2` alternates; `DC1,DC2,DC3` is a round robin). With two or three coilers the pattern is
-  required and must name at least two of them. A piece assigned to a downstream coiler does not stop
+  (`DC1,DC2` alternates; `DC1,DC2,DC3` is a round robin). An empty pattern uses all the coilers in
+  turn, in Layout order, and the app and `hsmpace run` say so in a short note. A pattern that is
+  filled in is checked: with two or three coilers it must name at least two of them, and only
+  coiler ids. A piece assigned to a downstream coiler does not stop
   at the one upstream. Do not put the coiler on the product row: the same product often alternates.
 * **Coiler**: on gripping, the physical head is pinned and the length on the line decreases, while the
   virtual head carries on.

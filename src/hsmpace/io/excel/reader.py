@@ -549,9 +549,14 @@ def _read_settings(
 
     pattern: tuple[str, ...] = ()
     if "coiler_pattern" in raw:
-        value, _ = raw["coiler_pattern"]
-        if value:
+        value, cell = raw["coiler_pattern"]
+        if value is not None and str(value).strip():
             pattern = tuple(p.strip() for p in str(value).split(",") if p.strip())
+            # Only a truly empty cell selects the default cycle.
+            if not pattern:
+                issues.add(
+                    ws.title, cell, f"coiler_pattern: {value!r} does not name any coiler"
+                )
 
     return SimSettings(
         pacing=num("pacing_s", defaults.pacing),

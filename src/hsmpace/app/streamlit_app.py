@@ -123,6 +123,21 @@ def _events_csv(results: list[PieceResult]) -> str:
     return buffer.getvalue()
 
 
+def _piece_products(
+    workbook_sequence: tuple[str, ...], n_pieces: int, chosen: str | None
+) -> tuple[str, ...]:
+    """Product of each simulated piece: the workbook cycle, or one product for all.
+
+    An empty result leaves the choice to ``Case.piece_products`` (the first
+    product, repeated), which is what an empty ``piece_products`` cell means.
+    """
+    if chosen is not None:
+        return (chosen,) * n_pieces
+    if not workbook_sequence:
+        return ()
+    return tuple(workbook_sequence[i % len(workbook_sequence)] for i in range(n_pieces))
+
+
 def main() -> None:
     st.set_page_config(page_title="HSM pacing", page_icon="~", layout="wide")
     st.title("Space-time diagram and pacing of a Hot Strip Mill")
@@ -133,8 +148,8 @@ def main() -> None:
         st.caption(
             "With no file loaded the built-in example mill is used, with invented "
             "but plausible data. A TRoll XML is mapped onto a workbook: download it, "
-            "add coiler rows and the piece sequence, then load the .xlsx. Cooling "
-            "banks are not imported. XML is not simulated."
+            "add coiler rows, then load the .xlsx and pick the product in the Scenario "
+            "below. Cooling banks are not imported. XML is not simulated."
         )
         st.download_button(
             "Download the empty template",
@@ -159,8 +174,9 @@ def main() -> None:
             st.stop()
         st.info(
             "This TRoll dump is mapped onto an input workbook. It is not simulated. "
-            "Download the file, add coiler rows (`kind=coiler`, `x_m`) and "
-            "`piece_products`, then load the .xlsx."
+            "Download the file, add coiler rows (`kind=coiler`, `x_m`), then load the "
+            ".xlsx. `piece_products` and `coiler_pattern` may stay empty: the product "
+            "is chosen in the sidebar, and the coilers are used in turn."
         )
         for remark in summary["warnings"]:
             st.warning(remark)
@@ -219,6 +235,18 @@ def main() -> None:
             value=max(2, min(8, settings.n_pieces)),
             help="The product and coiler cycles in the workbook repeat over this many pieces.",
         )
+        product_labels = {
+            p.id: p.id if p.label in ("", p.id) else f"{p.id} — {p.label}"
+            for p in case.products
+        }
+        chosen_product = st.selectbox(
+            "Product",
+            options=[None, *product_labels],
+            format_func=lambda pid: "Workbook sequence" if pid is None else product_labels[pid],
+            help="Workbook sequence follows piece_products on the Simulation sheet "
+            "(empty = the first product). Any other choice runs every piece with "
+            "that product.",
+        )
         time_down = st.checkbox("Time increasing downwards", value=settings.time_axis_down)
         show_virtual = st.checkbox(
             "Show the virtual head",
@@ -239,7 +267,6 @@ def main() -> None:
             "Runs", min_value=50, max_value=20000, value=int(settings.mc_runs), step=50
         )
 
-    seq = settings.piece_products
     case = replace(
         case,
         settings=replace(
@@ -247,7 +274,7 @@ def main() -> None:
             pacing=pacing,
             gap_min=gap_min,
             n_pieces=n_pieces,
-            piece_products=tuple(seq[i % len(seq)] for i in range(n_pieces)) if seq else (),
+            piece_products=_piece_products(settings.piece_products, n_pieces, chosen_product),
             mc_runs=int(mc_runs),
             time_axis_down=time_down,
         ),
@@ -268,11 +295,15 @@ def main() -> None:
             mc = monte_carlo(case, pacing=pacing, runs=int(mc_runs))
 
     assignment = ", ".join(f"{r.piece_id}→{r.coiler_id or '-'}" for r in results)
+    default_note = case.default_coiler_note
+    origin = "default cycle" if default_note else "repeating cycle from the workbook"
     st.caption(
-        f"Coiler assignment (repeating cycle from the workbook): {assignment}. "
+        f"Coiler assignment ({origin}): {assignment}. "
         "Zoom rolling uses the same virtual-head trigger for every mandrel; "
         "pinning and the tail slowdown use the assigned coiler."
     )
+    if default_note:
+        st.info(default_note)
     for remark in case.warnings:
         st.warning(remark)
 

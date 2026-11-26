@@ -233,7 +233,7 @@ class SimSettings:
     n_pieces: int = 3
     piece_products: tuple[str, ...] = ()
     coiler_pattern: tuple[str, ...] = ()
-    """Repeating cycle of coiler ids (empty = the only coiler in the layout)."""
+    """Repeating cycle of coiler ids (empty = every coiler, in Layout order)."""
     gap_min: float = 5.0
     pacing_scan_min: float = 70.0
     pacing_scan_max: float = 360.0
@@ -352,16 +352,32 @@ class Case:
         return tuple([self.products[0].id] * self.settings.n_pieces)
 
     @property
+    def coiler_cycle(self) -> tuple[str, ...]:
+        """Repeating cycle of coiler ids in force.
+
+        ``coiler_pattern`` when it is filled in; otherwise every coiler of the
+        layout, in Layout order.
+        """
+        return self.settings.coiler_pattern or tuple(e.id for e in self.line.coilers)
+
+    @property
+    def default_coiler_note(self) -> str | None:
+        """Remark for the user when the default cycle picks among several coilers."""
+        if self.settings.coiler_pattern or len(self.line.coilers) < 2:
+            return None
+        return (
+            "coiler_pattern is empty: all coilers are used in turn, in Layout order "
+            f"({', '.join(self.coiler_cycle)})."
+        )
+
+    @property
     def piece_coiler_ids(self) -> tuple[str, ...]:
-        """Coiler assigned to each piece, cycling through ``coiler_pattern``."""
+        """Coiler assigned to each piece, cycling through ``coiler_cycle``."""
         n = len(self.piece_products)
-        coilers = self.line.coilers
-        pattern = self.settings.coiler_pattern
-        if not coilers:
+        cycle = self.coiler_cycle
+        if not cycle:
             return tuple("" for _ in range(n))
-        if not pattern:
-            return tuple(coilers[0].id for _ in range(n))
-        return tuple(pattern[i % len(pattern)] for i in range(n))
+        return tuple(cycle[i % len(cycle)] for i in range(n))
 
     def coiler_for_index(self, index: int) -> Equipment | None:
         """Layout row of the coiler assigned to piece ``index``, or None."""

@@ -103,6 +103,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(f"Warning: {warning}")
 
     print(f"Simulated pacing: {case.settings.pacing:.1f} s over {len(results)} pieces")
+    if case.default_coiler_note:
+        print(f"Note: {case.default_coiler_note}")
     if analyses:
         worst = min(analyses, key=lambda a: a.min_gap)
         state = "feasible" if worst.ok else "VIOLATION"

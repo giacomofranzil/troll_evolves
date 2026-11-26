@@ -73,7 +73,8 @@ Status labels:
 - Reversing time and clearance are mapped from TRoll reversing data.
 - Zoom uses TRoll's virtual-head convention and the last rolling device.
 - Products are imported as a catalogue. The user defines the production sequence through
-  `piece_products`.
+  `piece_products`; in the web application the Product dropdown can instead run every piece with
+  one product of the catalogue.
 
 #### Coilbox
 
