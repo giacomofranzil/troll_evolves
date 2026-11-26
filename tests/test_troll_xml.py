@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -14,7 +15,9 @@ from hsmpace.io.excel import write_case, read_case
 from hsmpace.io.troll_xml import case_from_troll
 
 FIXTURE = Path(__file__).parent / "data" / "troll_cbx.xml"
-REAL_CBX = Path("/tmp/troll-xml2/Marcegaglia_Fos-sur-Mer_Phase_2_CBX_4mm.xml")
+# a full TRoll dump is plant data and stays out of the repository: point this
+# variable at one to run the check against it
+REAL_CBX = Path(os.environ.get("HSMPACE_REAL_TROLL_XML", "/tmp/troll-xml2/real_cbx_dump.xml"))
 
 
 def test_troll_fixture_maps_layout_without_coilers_or_cooling():
@@ -75,9 +78,89 @@ def test_troll_coilbox_defaults_from_last_rougher_and_f1_entry():
     assert p.coilbox_v_uncoil == pytest.approx(1.2)
 
 
+def _without_coilbox(tmp_path, drop_f1_entry_speed: bool = False) -> Path:
+    """The fixture with the coilbox taken out of the line, as in a bypass dump.
+
+    The transfer table is stretched to 157 m so that the 66 m bar is free of R2
+    before it reaches F1, as on a line built without a coilbox.
+    """
+    tree = ET.parse(FIXTURE)
+    root = tree.getroot()
+    devices = root.find("Devices")
+    for dev in list(devices):
+        if dev.get("DeviceType") == "CoilBox":
+            devices.remove(dev)
+        elif dev.get("DeviceName") == "WD2":
+            dev.find("EntryData").find("DistanceFromPreviousDevice").text = "150"
+    for piece in root.find("Pieces"):
+        passes = piece.find("PassList")
+        for pas in list(passes):
+            if pas.get("DeviceName") == "CBX":
+                passes.remove(pas)
+            elif pas.get("DeviceName") == "F1" and drop_f1_entry_speed:
+                speed = pas.find("SpeedData")
+                speed.remove(speed.find("PredictedEntrySpeedHead"))
+    path = tmp_path / "troll_bypass.xml"
+    tree.write(path, encoding="utf-8", xml_declaration=True)
+    return path
+
+
+def test_troll_with_a_coilbox_leaves_the_f1_approach_to_uncoiling():
+    case = case_from_troll(FIXTURE)
+    assert all(rp.approach_v is None for rp in case.products[0].passes)
+    assert not any("approach_v_mps" in w for w in case.warnings)
+
+
+def test_troll_without_a_coilbox_puts_the_f1_entry_speed_on_the_f1_pass(tmp_path):
+    case = case_from_troll(_without_coilbox(tmp_path))
+    p = case.products[0]
+    r1a, r1b, r2, f1, f7 = p.passes
+
+    assert not any(e.kind == "coilbox" for e in case.line.equipment)
+    assert p.use_coilbox is None and p.coilbox_v_uncoil == 0.0
+    # TRoll PredictedEntrySpeedHead of F1, per product
+    assert f1.approach_v == pytest.approx(1.2)
+    assert all(rp.approach_v is None for rp in (r1a, r1b, r2, f7))
+    assert any("approach_v_mps on the first finishing pass" in w for w in case.warnings)
+    assert [pr for pr in validate_case(case) if not pr.is_warning] == []
+
+
+def test_troll_without_a_coilbox_slows_the_bar_to_f1_entry_speed(tmp_path):
+    case = case_from_troll(_without_coilbox(tmp_path))
+    res = simulate_piece(case, case.products[0])
+    bite = next(e for e in res.events if e.kind == "bite" and e.equipment_id == "F1")
+
+    # the bar leaves R2 at 5 m/s and reaches F1 at the imported entry speed
+    assert res.head.v_at(bite.t - 5.0) == pytest.approx(5.0)
+    assert res.head.v_at(bite.t - 1e-6) == pytest.approx(1.2, abs=1e-4)
+
+
+def test_troll_f1_approach_falls_back_to_the_mass_flow_entry_speed(tmp_path):
+    case = case_from_troll(_without_coilbox(tmp_path, drop_f1_entry_speed=True))
+    f1 = next(rp for rp in case.products[0].passes if rp.equipment_id == "F1")
+
+    assert f1.approach_v == pytest.approx(f1.v_entry)
+    res = simulate_piece(case, case.products[0])
+    bite = next(e for e in res.events if e.kind == "bite" and e.equipment_id == "F1")
+    assert res.head.v_at(bite.t + 1e-6) == pytest.approx(f1.v_exit, abs=1e-4)
+    assert not any("on F1" in w for w in res.warnings)
+
+
+def test_troll_f1_approach_round_trips_through_excel(tmp_path):
+    from hsmpace.io.troll_xml import write_troll_case
+
+    dest = tmp_path / "bypass.xlsx"
+    write_troll_case(_without_coilbox(tmp_path), dest, source_name="bypass.xml")
+    loaded = read_case(dest)
+    f1 = next(rp for rp in loaded.products[0].passes if rp.equipment_id == "F1")
+
+    assert f1.approach_v == pytest.approx(1.2)
+    assert "approach_v_mps on the first finishing pass" in (loaded.info.get("notes") or "")
+
+
 def test_source_name_is_used_in_import_warnings():
-    case = case_from_troll(FIXTURE, source_name="Marcegaglia_CBX.xml")
-    assert any("Marcegaglia_CBX.xml" in w for w in case.warnings)
+    case = case_from_troll(FIXTURE, source_name="uploaded_dump.xml")
+    assert any("uploaded_dump.xml" in w for w in case.warnings)
     assert not any(FIXTURE.name in w for w in case.warnings)
 
 

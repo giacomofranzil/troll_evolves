@@ -110,12 +110,16 @@ Candidates:
    of the pass. Only when the direction of the pass matches the current one, no reversal is in
    progress, and the stand is **still ahead**: `direction * (x_stand - x_leading) > tolerance`.
    Without that last condition, right after a bite the leading extremity sits exactly on the stand and
-   a second pass on the same stand would bite at the very same instant.
+   a second pass on the same stand would bite at the very same instant. One exception: when the
+   leading extremity is within `tolerance` of the stand and no engaged pass is on that stand, the bite
+   is immediate. That is what a ramp ending on the stand leaves behind.
 3. **tail-out** of every engaged pass: crossing of the stand position by the trailing extremity
 4. **arming of a speed event**, see below
 5. **speed event**: crossing of the trigger position by the leading extremity, in the direction
    declared by the event. An event does not re-arm at the same instant at which it fired; section
-   events are ignored while a reversal is in progress.
+   events are ignored while a reversal is in progress. A section event whose position is within
+   `tolerance` (1e-6 m) of the stand of the next pass is not a candidate of its own: it is settled at
+   that bite, see below.
 6. **braking point** of a reversal, see below
 7. **braking point** of the final slowdown towards the coiler, see below
 8. **end of run**: crossing of the coiler position by the trailing extremity, only once no pass is
@@ -142,6 +146,23 @@ engaged = engaged + p
 nominal_target = v_exit(p)
 accel   = acceleration of the stand
 ```
+
+Before those assignments, with `v_arrival` the lead speed just before the bite:
+
+* **Speed commands that end on the stand.** If the pass has an approach command (see *Approach speed*
+  below) and `|v_arrival - approach_v|` exceeds the reach tolerance `max(0.02 * max(v, 1), 0.05)` m/s,
+  a warning is emitted: "not applied" when a pass was still engaged, "not enough distance" otherwise.
+  Every section event within `tolerance` of the stand, in the current direction, is consumed here: if
+  it was never armed while a pass was engaged and it is not valid while rolling, it is deferred as
+  usual; otherwise it is checked against the same reach tolerance and reported as a `speed_change`
+  event. A consumed event is not a crossing candidate again until the next reversal, so it is never
+  applied a second time at disengagement.
+* **Bite check.** The entry speed of the pass is `v_exit / lambda`, times `zoom_factor` when that is
+  above 1. If `v_arrival` exceeds it by more than `BITE_SPEED_TOLERANCE = 0.10` a warning is emitted,
+  once per run of engaged stands: the flag is set at the first offending bite and cleared when the
+  last engaged pass tails out. Only an arrival that is too fast is reported. A slower one is ordinary
+  threading: the stand accelerates the piece to the pass speed after the bite. The check does not
+  change the motion.
 
 If the pass defines a zoom, a relative speed event is registered with trigger at
 `x_stand + zoom_trigger`, forward direction, valid while rolling as well. That offset is
@@ -205,6 +226,10 @@ as deferred, the last one arriving replacing the previous. Otherwise, a relative
 `zoom_factor` by `(1 + rel_pct/100)` and an absolute one assigns `nominal_target` and resets
 `zoom_factor` to 1.
 
+A section event that is never applied is reported with a warning, in three cases: a deferred event
+replaced by a later one; a deferred event still pending at the last tail-out once the coiler slowdown
+has started; an event crossed after the coiler slowdown has started.
+
 ### Coilbox
 
 At most one `coilbox` in the layout, mandrel-less: the axis is the station. Use of the box is
@@ -252,13 +277,32 @@ means the point has already gone by and the ramp must start at once.
 
 An event is **not** armed, and falls back to the plain behaviour at its trigger, when its target
 position falls inside a rolling zone: either a pass is engaged and will still be engaged there, or a
-stand still to be engaged lies between the leading extremity and the target position. A ramp cannot be
-planned across a pass, because the bite reassigns the speed anyway. When only the anticipation reaches
+stand still to be engaged lies between the leading extremity and the target position, more than
+`tolerance` before it. A target position on the stand itself is the speed at the bite and is armed. A
+ramp cannot be planned across a pass, because the bite reassigns the speed anyway. When only the anticipation reaches
 back into the rolling zone while the target position is already in free running, the ramp does start
 during the pass and the fact is reported.
 
 Zoom rolling is deliberately excluded from this rule: its trigger is the point where the acceleration
 starts, following the convention of the offline model TRoll.
+
+### Approach speed
+
+`approach_v` of a pass is the speed of the leading extremity when it reaches the stand.
+
+* First pass, and a pass that follows a reversal: `nominal_target` is assigned `approach_v` at release
+  or at the end of the reversal wait, `v_exit / lambda` when the field is empty. No ramp is planned.
+* A pass that follows another pass in the same direction (F1 after the last roughing pass): when the
+  field is filled, an approach command is created with target position `x_stand` and target speed
+  `approach_v`. While that pass is the next one and its bite is possible, the command competes for
+  arming with the section events as the nearest event ahead, and wins over a section event on the
+  same stand. It is armed exactly like an anticipated ramp, at the prevailing acceleration, so it
+  starts as late as possible and ends on the stand. It is never a crossing candidate: it is settled
+  at the bite. It is not armed when the commanded speed already equals `approach_v`, nor when a pass
+  will still be engaged as the leading extremity reaches the stand: while rolling the mill commands.
+  If a section event or a deferred event assigns the speed while the approach ramp is under way, the
+  ramp is dropped and planned again from the new speed. When the field is empty there is no command
+  and the piece keeps the speed it has.
 
 ### Final slowdown towards the coiler
 

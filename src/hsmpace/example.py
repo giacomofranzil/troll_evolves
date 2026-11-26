@@ -104,6 +104,7 @@ def _passes(product_id: str, rows: list[tuple]) -> tuple[RollingPass, ...]:
         master,
         zoom_pct,
         zoom_trigger,
+        *approach,
     ) in rows:
         out.append(
             RollingPass(
@@ -121,21 +122,25 @@ def _passes(product_id: str, rows: list[tuple]) -> tuple[RollingPass, ...]:
                 master=master,
                 zoom_pct=zoom_pct,
                 zoom_trigger=zoom_trigger,
+                approach_v=approach[0] if approach else None,
             )
         )
     return tuple(out)
 
 
 # delay and clearance describe the reversal that FOLLOWS the pass on the same
-# row, so the last pass of each reversing stand carries none.
+# row, so the last pass of each reversing stand carries none. The optional last
+# value is the approach speed: the first pass on R2 and on F1 is reached in the
+# same direction from another stand, so the bar is brought to the entry speed of
+# that pass at the bite.
 _P1 = [
     (1, "R1", FWD, 230.0, 185.0, 1120.0, 1130.8, 2.0, 3.0, 4.0, False, 0.0, 0.0),
     (2, "R1", REV, 185.0, 140.0, 1130.8, 1141.6, 3.0, 3.0, 6.0, False, 0.0, 0.0),
     (3, "R1", FWD, 140.0, 103.0, 1141.6, 1150.4, 4.0, 0.0, 0.0, False, 0.0, 0.0),
-    (4, "R2", FWD, 103.0, 75.0, 1150.4, 1157.1, 4.5, 3.0, 4.0, False, 0.0, 0.0),
+    (4, "R2", FWD, 103.0, 75.0, 1150.4, 1157.1, 4.5, 3.0, 4.0, False, 0.0, 0.0, 3.3),
     (5, "R2", REV, 75.0, 52.0, 1157.1, 1162.5, 4.8, 3.0, 6.0, False, 0.0, 0.0),
     (6, "R2", FWD, 52.0, 35.0, 1162.5, 1166.5, 5.2, 0.0, 0.0, False, 0.0, 0.0),
-    (7, "F1", FWD, 35.0, 17.0, 1166.5, 1170.8, 0.86, 0.0, 0.0, False, 0.0, 0.0),
+    (7, "F1", FWD, 35.0, 17.0, 1166.5, 1170.8, 0.86, 0.0, 0.0, False, 0.0, 0.0, 0.42),
     (8, "F2", FWD, 17.0, 8.0, 1170.8, 1172.9, 1.83, 0.0, 0.0, False, 0.0, 0.0),
     (9, "F3", FWD, 8.0, 4.6, 1172.9, 1173.7, 3.18, 0.0, 0.0, False, 0.0, 0.0),
     (10, "F4", FWD, 4.6, 3.0, 1173.7, 1174.1, 4.87, 0.0, 0.0, False, 0.0, 0.0),
@@ -150,10 +155,10 @@ _P2 = [
     (1, "R1", FWD, 230.0, 188.0, 1120.0, 1130.1, 2.0, 3.0, 4.0, False, 0.0, 0.0),
     (2, "R1", REV, 188.0, 146.0, 1130.1, 1140.2, 3.0, 3.0, 6.0, False, 0.0, 0.0),
     (3, "R1", FWD, 146.0, 106.0, 1140.2, 1149.7, 4.0, 0.0, 0.0, False, 0.0, 0.0),
-    (4, "R2", FWD, 106.0, 78.0, 1149.7, 1156.4, 4.5, 3.0, 4.0, False, 0.0, 0.0),
+    (4, "R2", FWD, 106.0, 78.0, 1149.7, 1156.4, 4.5, 3.0, 4.0, False, 0.0, 0.0, 3.3),
     (5, "R2", REV, 78.0, 55.0, 1156.4, 1161.8, 4.8, 3.0, 6.0, False, 0.0, 0.0),
     (6, "R2", FWD, 55.0, 38.0, 1161.8, 1165.8, 5.2, 0.0, 0.0, False, 0.0, 0.0),
-    (7, "F1", FWD, 38.0, 22.0, 1165.8, 1169.6, 0.72, 0.0, 0.0, False, 0.0, 0.0),
+    (7, "F1", FWD, 38.0, 22.0, 1165.8, 1169.6, 0.72, 0.0, 0.0, False, 0.0, 0.0, 0.42),
     (8, "F2", FWD, 22.0, 12.0, 1169.6, 1172.0, 1.32, 0.0, 0.0, False, 0.0, 0.0),
     (9, "F3", FWD, 12.0, 7.0, 1172.0, 1173.1, 2.27, 0.0, 0.0, False, 0.0, 0.0),
     (10, "F4", FWD, 7.0, 4.5, 1173.1, 1173.7, 3.52, 0.0, 0.0, False, 0.0, 0.0),

@@ -79,7 +79,7 @@ hsmpace import dump.xml case.xlsx            # TRoll ProcessData XML → workboo
 hsmpace run case.xlsx                        # simulate the edited workbook
 ```
 
-A TRoll dump is mapped onto a workbook, not simulated (`hsmpace import`, or upload `.xml` in the app and download the `.xlsx`). Predicted head exit speed in m/s and predicted thickness/width become the pass schedule. SpeedHead/Tail and roll rpm are ignored. Cooling banks are omitted. Coilers are not in TRoll: add `coiler` rows with `x_m` in the workbook. If a coilbox is present, coiling speed defaults to the last rougher exit and uncoiling to F1 entry. Products are a catalogue; set `piece_products` on the Simulation sheet. Then load the `.xlsx` to simulate.
+A TRoll dump is mapped onto a workbook, not simulated (`hsmpace import`, or upload `.xml` in the app and download the `.xlsx`). Predicted head exit speed in m/s and predicted thickness/width become the pass schedule. SpeedHead/Tail and roll rpm are ignored. Cooling banks are omitted. Coilers are not in TRoll: add `coiler` rows with `x_m` in the workbook. If a coilbox is present, coiling speed defaults to the last rougher exit and uncoiling to F1 entry. Without a coilbox the F1 entry speed predicted by TRoll is written as `approach_v_mps` on the first finishing pass of each product, so the transfer bar is slowed to it before the bite. Products are a catalogue; set `piece_products` on the Simulation sheet. Then load the `.xlsx` to simulate.
 
 `hsmpace run` returns 2 when the minimum gap drops below the threshold, so it can be used in checking
 scripts.
@@ -112,13 +112,24 @@ Other conventions worth knowing:
   where the ramp starts. The tool anticipates the ramp so that the piece is at speed exactly there, and
   reports the shortfall when there is not enough room. An event whose target position falls while a
   pass is engaged, or beyond a stand still to be engaged, is deferred to disengagement: a ramp cannot
-  be planned across a pass because the bite resets the speed anyway.
+  be planned across a pass because the bite resets the speed anyway. A distance that ends exactly on a
+  stand is the speed at the bite of that stand and is not applied again afterwards. A deferred change
+  that is never applied, because the coiler slowdown has started or a later change replaced it, is
+  reported.
+* **Speed at the bite**: a stand takes the piece at the entry speed of its pass, `v_exit / lambda`. A
+  bar that arrives faster leaves the stand faster by the same factor, and a tandem multiplies the
+  excess at every stand. `approach_v_mps` on a pass reached in the same direction from another stand
+  (F1 after the last roughing pass) makes the tool ramp as late as possible so that the leading end
+  has that speed exactly on the stand, per product. Empty means no command. A bite more than 10 %
+  above the entry speed is reported, once per run of engaged stands; a slower one is ordinary
+  threading and is not.
 * **Accelerations**, in order of precedence: the one written next to a speed change applies to that
   ramp only; while the piece is gripped, the one of the stand rolling it; while it is free, the one of
   the section it is in, or the global `table_accel_mps2` default.
 * **Reversals**: the `reversing_delay_s` and `reversing_clearance_m` on a row describe the reversal
   that **follows** that pass, so the schedule reads downwards as "finish this pass, back off, wait,
-  then go the other way". The `approach_v_mps` instead stays on the row of the pass it approaches.
+  then go the other way". The `approach_v_mps` instead stays on the row of the pass it approaches:
+  after a reversal it is the speed the piece is sent back at, and empty means the pass entry speed.
   The clearance is the **stop position**, measured from the stand (increase it if the real constraint
   is the edger). It is master: the piece stops there. The model derives the tail-out speed
   `v* = sqrt(2 a_table C)` that lets the table finish the stop; if the pass is faster, the mill
@@ -165,7 +176,7 @@ in mm, speeds in m/s, times in s, accelerations in m/s2, water in m³/h, electri
 | `Layout` | equipment with position, kind (`start`, `stand`, `coiler`, `coilbox`, `marker`), acceleration, tandem group, occupancy (`occupy`, `occupy_before_m`, `occupy_after_m`) |
 | `Sections` | line sections with their own acceleration and up to 7 speed changes each, given as a distance from the section start plus a speed |
 | `Products` | slab dimensions, and coilbox use (`YES` / `NO` / empty) plus threading, coiling, uncoiling speeds, `coilbox_thread_length_m` and `coilbox_delay_s` |
-| `PassSchedule` | per pass: stand, direction, reduction, widths, speed, reversing delay and clearance, tandem master, zoom |
+| `PassSchedule` | per pass: stand, direction, reduction, widths, speed, reversing delay and clearance, approach speed, tandem master, zoom |
 | `Simulation` | pacing, number of pieces, product sequence, coiler cycle, minimum gap, roller table acceleration, final speed at the coiler, scan and Monte Carlo parameters |
 | `Utilities` | optional recipes: `equipment_id`, `utility` (`water` \| `power`), `rate` (m³/h or kW), `when` (`occupy` \| `rolling`). Older workbooks without the sheet still load |
 
