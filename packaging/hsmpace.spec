@@ -29,6 +29,7 @@ def _root(*parts: str) -> str:
 
 datas = [
     (_root("src", "hsmpace", "app", "streamlit_app.py"), "hsmpace/app"),
+    (_root("packaging", "WINDOWS-README.txt"), "."),
     # Theme. Port, address, and headless are also flags in cli._streamlit_argv.
     # contents_directory="." puts this next to hsmpace.exe, which is the
     # working directory of a double-click. The second copy is the script-level

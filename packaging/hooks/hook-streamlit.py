@@ -1,7 +1,7 @@
 # PyInstaller hook for Streamlit.
-# pyinstaller-hooks-contrib (2026.8) ships hooks for plotly, altair, pyarrow,
-# pandas, numpy, PIL, and openpyxl. It does not ship hook-streamlit.py.
-# The 1.64 wheel does not either. Two things break without this hook:
+# PyInstaller's hook collection covers plotly, altair, pyarrow, pandas, numpy,
+# PIL, and openpyxl, but neither it nor Streamlit ships hook-streamlit.py.
+# Two things break without this hook:
 # importlib.metadata.version("streamlit") needs the dist-info, and
 # streamlit.file_util.get_static_dir() reads streamlit/static beside the
 # package (sys._MEIPASS/streamlit/static).
